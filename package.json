@@ -1,0 +1,25 @@
+{
+  "name": "physnet",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "pnpm --parallel dev",
+    "dev:api": "pnpm --filter @physnet/api dev",
+    "dev:web": "pnpm --filter @physnet/web dev",
+    "build": "pnpm --recursive build",
+    "typecheck": "pnpm --recursive typecheck",
+    "lint": "pnpm --recursive lint",
+    "test": "pnpm --recursive test",
+    "format": "prettier --write .",
+    "format:fix": "prettier --write .",
+    "format:check": "prettier --check .",
+    "clean": "pnpm --recursive exec rm -rf dist .next coverage node_modules",
+    "prepare": "husky"
+  },
+  "packageManager": "pnpm@10.22.0",
+  "devDependencies": {
+    "husky": "^9.1.7",
+    "lint-staged": "^17.6.0",
+    "prettier": "^3.9.9"
+  }
+}
