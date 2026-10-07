@@ -1,0 +1,28 @@
+# Garage S3 Object Storage Configuration for local development
+# Documentation: https://garagehq.deuxfleurs.fr/documentation/reference-manual/configuration/
+
+metadata_dir = "/var/lib/garage/meta"
+data_dir = "/var/lib/garage/data"
+db_engine = "sqlite"
+
+# Replication factor of 1 is required for a single-node setup
+replication_factor = 1
+
+# RPC configuration for cluster communication
+# rpc_secret is passed via GARAGE_RPC_SECRET environment variable
+rpc_bind_addr = "[::]:3901"
+rpc_public_addr = "127.0.0.1:3901"
+
+[s3_api]
+s3_region = "garage"
+api_bind_addr = "[::]:3900"
+root_domain = ".s3.garage"
+
+[s3_web]
+bind_addr = "[::]:3902"
+root_domain = ".web.garage"
+index = "index.html"
+
+[admin]
+# admin_token is passed via GARAGE_ADMIN_TOKEN environment variable
+api_bind_addr = "[::]:3903"

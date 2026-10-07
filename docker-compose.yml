@@ -1,0 +1,68 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: physnet-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-physnet}
+    ports:
+      - '${POSTGRES_PORT:-5433}:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-physnet}']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  garage:
+    image: dxflrs/garage:v2.0.0
+    container_name: physnet-garage
+    restart: unless-stopped
+    environment:
+      GARAGE_RPC_SECRET: ${GARAGE_RPC_SECRET:-b32811a91e57a3e75a7c293bd8559bfb1b70217ec23f33878b66e5fba0b92dbb}
+      GARAGE_ADMIN_TOKEN: ${GARAGE_ADMIN_TOKEN:-c3f89037c862d2946c59c5d07ee83a4cb7a3de17926715fba45c1be782637f90}
+    ports:
+      - '${GARAGE_S3_PORT:-3900}:3900' # S3 API
+      - '${GARAGE_RPC_PORT:-3901}:3901' # RPC
+      - '${GARAGE_WEB_PORT:-3902}:3902' # S3 Web
+      - '${GARAGE_ADMIN_PORT:-3903}:3903' # Admin API
+    volumes:
+      - ./docker/garage/garage.toml:/etc/garage.toml:ro
+      - garage_meta:/var/lib/garage/meta
+      - garage_data:/var/lib/garage/data
+    healthcheck:
+      test: ['CMD', '/garage', '-c', '/etc/garage.toml', 'status']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  garage-webui:
+    image: khairul169/garage-webui:latest
+    container_name: physnet-garage-webui
+    restart: unless-stopped
+    depends_on:
+      garage:
+        condition: service_healthy
+    ports:
+      - '${GARAGE_WEBUI_PORT:-3909}:3909'
+    environment:
+      API_BASE_URL: 'http://garage:3903'
+      S3_ENDPOINT_URL: 'http://garage:3900'
+      ADMIN_TOKEN: ${GARAGE_ADMIN_TOKEN:-c3f89037c862d2946c59c5d07ee83a4cb7a3de17926715fba45c1be782637f90}
+    volumes:
+      - ./docker/garage/garage.toml:/etc/garage.toml:ro
+
+volumes:
+  postgres_data:
+    name: physnet_postgres_data
+  garage_meta:
+    name: physnet_garage_meta
+  garage_data:
+    name: physnet_garage_data
+
+networks:
+  default:
+    name: physnet_network
