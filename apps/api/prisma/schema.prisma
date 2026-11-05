@@ -1,8 +1,6 @@
 // This is your Prisma schema file,
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
-// Get a free hosted Postgres database in seconds: `npx create-db`
-
 generator client {
   provider = "prisma-client"
   output   = "../src/generated/prisma"
@@ -10,4 +8,122 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+}
+
+model Administrator {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email        String   @unique @db.VarChar(255)
+  passwordHash String   @map("password_hash") @db.VarChar(255)
+  firstName    String   @map("first_name") @db.VarChar(100)
+  lastName     String   @map("last_name") @db.VarChar(100)
+  role         String   @default("ADMIN") @db.VarChar(50)
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt    DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  floorPlans      FloorPlan[]
+  routingPolicies RoutingPolicy[]
+
+  @@map("administrators")
+}
+
+model FloorPlan {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  title     String   @db.VarChar(255)
+  imageUrl  String   @map("image_url") @db.Text
+  scale     Float    @default(1.0)
+  width     Int
+  height    Int
+  createdBy String   @map("created_by") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  creator            Administrator       @relation(fields: [createdBy], references: [id], onDelete: Restrict, map: "fk_floor_plans_admin")
+  spatialCoordinates SpatialCoordinate[]
+  networkLinks       NetworkLink[]
+
+  @@map("floor_plans")
+}
+
+model NetworkDevice {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  onosDeviceId String   @unique @map("onos_device_id") @db.VarChar(255)
+  name         String   @db.VarChar(255)
+  deviceType   String   @map("device_type") @db.VarChar(50)
+  ipAddress    String?  @map("ip_address") @db.Inet
+  macAddress   String?  @map("mac_address") @db.VarChar(50)
+  status       String   @default("ACTIVE") @db.VarChar(50)
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt    DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  ports              DevicePort[]
+  spatialCoordinates SpatialCoordinate[]
+
+  @@map("network_devices")
+}
+
+model DevicePort {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  deviceId   String   @map("device_id") @db.Uuid
+  portNumber String   @map("port_number") @db.VarChar(50)
+  macAddress String?  @map("mac_address") @db.VarChar(50)
+  ipAddress  String?  @map("ip_address") @db.Inet
+  speedMbps  Int?     @map("speed_mbps")
+  isEnabled  Boolean  @default(true) @map("is_enabled")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  device                  NetworkDevice @relation(fields: [deviceId], references: [id], onDelete: Cascade, map: "fk_device_ports_device")
+  sourceNetworkLinks      NetworkLink[] @relation("SourcePort")
+  destinationNetworkLinks NetworkLink[] @relation("DestinationPort")
+
+  @@unique([deviceId, portNumber], map: "uq_device_port")
+  @@map("device_ports")
+}
+
+model SpatialCoordinate {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  deviceId    String   @map("device_id") @db.Uuid
+  floorPlanId String   @map("floor_plan_id") @db.Uuid
+  x           Float
+  y           Float
+  rotation    Float    @default(0.0)
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  device    NetworkDevice @relation(fields: [deviceId], references: [id], onDelete: Cascade, map: "fk_spatial_device")
+  floorPlan FloorPlan     @relation(fields: [floorPlanId], references: [id], onDelete: Cascade, map: "fk_spatial_floor_plan")
+
+  @@unique([deviceId, floorPlanId], map: "uq_device_floor_plan")
+  @@map("spatial_coordinates")
+}
+
+model NetworkLink {
+  id                String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  onosLinkId        String? @map("onos_link_id") @db.VarChar(255)
+  sourcePortId      String  @map("source_port_id") @db.Uuid
+  destinationPortId String  @map("destination_port_id") @db.Uuid
+  floorPlanId       String  @map("floor_plan_id") @db.Uuid
+  waypoints         Json    @default("[]")
+  cableType         String  @default("COPPER") @map("cable_type") @db.VarChar(50)
+  status            String  @default("ACTIVE") @db.VarChar(50)
+
+  sourcePort      DevicePort @relation("SourcePort", fields: [sourcePortId], references: [id], onDelete: Cascade, map: "fk_links_source_port")
+  destinationPort DevicePort @relation("DestinationPort", fields: [destinationPortId], references: [id], onDelete: Cascade, map: "fk_links_destination_port")
+  floorPlan       FloorPlan  @relation(fields: [floorPlanId], references: [id], onDelete: Cascade, map: "fk_links_floor_plan")
+
+  @@map("network_links")
+}
+
+model RoutingPolicy {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name       String   @db.VarChar(255)
+  intentKey  String?  @unique @map("intent_key") @db.VarChar(255)
+  intentType String   @map("intent_type") @db.VarChar(100)
+  payload    Json
+  isApplied  Boolean  @default(false) @map("is_applied")
+  createdBy  String   @map("created_by") @db.Uuid
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt  DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  creator Administrator @relation(fields: [createdBy], references: [id], onDelete: Restrict, map: "fk_policies_admin")
+
+  @@map("routing_policies")
 }
