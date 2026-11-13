@@ -27,20 +27,23 @@ model Administrator {
 }
 
 model FloorPlan {
-  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  title     String   @db.VarChar(255)
-  imageUrl  String   @map("image_url") @db.Text
-  scale     Float    @default(1.0)
-  width     Int
-  height    Int
-  createdBy String   @map("created_by") @db.Uuid
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  title      String   @db.VarChar(255)
+  building   String   @default("") @db.VarChar(255)
+  floorLevel Int      @default(0) @map("floor_level")
+  imageUrl   String   @map("image_url") @db.Text
+  scale      Float    @default(1.0)
+  width      Int
+  height     Int
+  createdBy  String   @map("created_by") @db.Uuid
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt  DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
   creator            Administrator       @relation(fields: [createdBy], references: [id], onDelete: Restrict, map: "fk_floor_plans_admin")
   spatialCoordinates SpatialCoordinate[]
   networkLinks       NetworkLink[]
 
+  @@index([building, floorLevel], map: "idx_floor_plans_building_floor")
   @@map("floor_plans")
 }
 

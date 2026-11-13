@@ -10,6 +10,8 @@ import {
   GetObjectCommandOutput,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import { ConfigService } from '@nestjs/config';
+import type { Env } from '../config/env.js';
 
 export interface UploadOptions {
   key: string;
@@ -36,14 +38,15 @@ export class StorageService {
   private readonly s3Client: S3Client;
   private readonly defaultBucket: string;
 
-  constructor() {
-    const endpoint = process.env['S3_ENDPOINT'] ?? 'http://localhost:3900';
-    const region = process.env['S3_REGION'] ?? 'garage';
-    const accessKeyId = process.env['S3_ACCESS_KEY_ID'] ?? 'physnet_access_key';
-    const secretAccessKey =
-      process.env['S3_SECRET_ACCESS_KEY'] ?? 'physnet_secret_key';
+  constructor(config: ConfigService<Env, true>) {
+    const endpoint = config.get('S3_ENDPOINT', { infer: true });
+    const region = config.get('S3_REGION', { infer: true });
+    const accessKeyId = config.get('S3_ACCESS_KEY_ID', { infer: true });
+    const secretAccessKey = config.get('S3_SECRET_ACCESS_KEY', {
+      infer: true,
+    });
 
-    this.defaultBucket = process.env['S3_BUCKET'] ?? 'physnet';
+    this.defaultBucket = config.get('S3_BUCKET', { infer: true });
 
     this.s3Client = new S3Client({
       endpoint,

@@ -22,7 +22,8 @@
     "format:fix": "prettier --write .",
     "format:check": "prettier --check .",
     "clean": "pnpm --recursive exec rm -rf dist .next coverage node_modules",
-    "prepare": "husky"
+    "prepare": "husky",
+    "db:seed": "pnpm --filter @physnet/api prisma:seed"
   },
   "packageManager": "pnpm@10.22.0",
   "devDependencies": {

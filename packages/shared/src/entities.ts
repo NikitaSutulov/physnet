@@ -17,6 +17,8 @@ export interface Administrator {
 export interface FloorPlan {
   id: string;
   title: string;
+  building: string;
+  floorLevel: number;
   imageUrl: string;
   scale: number;
   width: number;
