@@ -1,4 +1,4 @@
-import type { AdminRole, Administrator } from './entities.js';
+import type { AdminRole, Administrator } from './entities.ts';
 
 export interface JwtPayload {
   sub: string;

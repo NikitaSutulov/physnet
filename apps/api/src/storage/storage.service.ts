@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import {
   S3Client,
   PutObjectCommand,
@@ -6,6 +6,7 @@ import {
   DeleteObjectCommand,
   ListObjectsV2Command,
   HeadObjectCommand,
+  PutBucketCorsCommand,
   PutObjectCommandInput,
   GetObjectCommandOutput,
 } from '@aws-sdk/client-s3';
@@ -33,10 +34,11 @@ export interface PresignedUrlOptions {
 }
 
 @Injectable()
-export class StorageService {
+export class StorageService implements OnModuleInit {
   private readonly logger = new Logger(StorageService.name);
   private readonly s3Client: S3Client;
   private readonly defaultBucket: string;
+  private readonly corsOrigins: string[];
 
   constructor(config: ConfigService<Env, true>) {
     const endpoint = config.get('S3_ENDPOINT', { infer: true });
@@ -47,6 +49,7 @@ export class StorageService {
     });
 
     this.defaultBucket = config.get('S3_BUCKET', { infer: true });
+    this.corsOrigins = config.get('CORS_ORIGIN', { infer: true }).split(',');
 
     this.s3Client = new S3Client({
       endpoint,
@@ -59,6 +62,32 @@ export class StorageService {
     });
 
     this.logger.log(`Initialized S3 storage client for endpoint: ${endpoint}`);
+  }
+
+  async onModuleInit() {
+    try {
+      await this.s3Client.send(
+        new PutBucketCorsCommand({
+          Bucket: this.defaultBucket,
+          CORSConfiguration: {
+            CORSRules: [
+              {
+                AllowedOrigins: this.corsOrigins,
+                AllowedMethods: ['GET', 'HEAD'],
+                AllowedHeaders: ['*'],
+                MaxAgeSeconds: 3600,
+              },
+            ],
+          },
+        }),
+      );
+    } catch (e) {
+      this.logger.warn(
+        `Could not configure CORS for bucket "${this.defaultBucket}": ${
+          e instanceof Error ? e.message : String(e)
+        }. Floor plan images may fail to load in the browser.`,
+      );
+    }
   }
 
   get client(): S3Client {

@@ -56,7 +56,7 @@ fi
 
 # Grant permissions
 echo "==> Ensuring permissions for '$KEY_NAME' on '$BUCKET_NAME'..."
-docker exec "$CONTAINER_NAME" /garage -c /etc/garage.toml bucket allow --read --write "$BUCKET_NAME" --key "$KEY_NAME" > /dev/null 2>&1 || true
+docker exec "$CONTAINER_NAME" /garage -c /etc/garage.toml bucket allow --read --write --owner "$BUCKET_NAME" --key "$KEY_NAME" > /dev/null 2>&1 || true
 
 echo "==> Garage initialization complete!"
 echo "==> Access key info:"

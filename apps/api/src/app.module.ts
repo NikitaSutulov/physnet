@@ -6,6 +6,7 @@ import { PrismaModule } from './prisma/prisma.module.js';
 import { StorageModule } from './storage/storage.module.js';
 import { AuthModule } from './auth/auth.module.js';
 import { AdministratorsModule } from './administrators/administrators.module.js';
+import { FloorPlansModule } from './floor-plans/floor-plans.module.js';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { AdministratorsModule } from './administrators/administrators.module.js'
     StorageModule,
     AuthModule,
     AdministratorsModule,
+    FloorPlansModule,
   ],
   controllers: [AppController],
 })

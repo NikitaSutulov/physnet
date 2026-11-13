@@ -7,14 +7,15 @@ import type { PrismaService } from '../prisma/prisma.service.js';
 const SECRET = 'x'.repeat(32);
 
 function makeService(admin: Record<string, unknown> | null) {
+  const findUnique = vi.fn().mockResolvedValue(admin);
   const prisma = {
-    administrator: { findUnique: vi.fn().mockResolvedValue(admin) },
+    administrator: { findUnique },
   } as unknown as PrismaService;
   const jwt = new JwtService({
     secret: SECRET,
     signOptions: { expiresIn: '15m' },
   });
-  return { service: new AuthService(prisma, jwt), jwt, prisma };
+  return { service: new AuthService(prisma, jwt), jwt, findUnique };
 }
 
 describe('AuthService', () => {
@@ -40,9 +41,9 @@ describe('AuthService', () => {
   });
 
   it('normalises the email before lookup', async () => {
-    const { service, prisma } = makeService(admin);
+    const { service, findUnique } = makeService(admin);
     await service.login('ADMIN@PhysNet.Local', 'changeme123');
-    expect(prisma.administrator.findUnique).toHaveBeenCalledWith({
+    expect(findUnique).toHaveBeenCalledWith({
       where: { email: 'admin@physnet.local' },
     });
   });
