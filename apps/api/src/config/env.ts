@@ -22,7 +22,12 @@ const envSchema = z.object({
   ONOS_USER: z.string().default('onos'),
   ONOS_PASSWORD: z.string().default('rocks'),
   ONOS_APP_ID: z.string().default('org.onosproject.physnet'),
-  ONOS_POLL_INTERVAL_MS: z.coerce.number().int().positive().default(5000),
+  ONOS_POLL_INTERVAL_MS: z.coerce.number().int().min(1000).default(5000),
+  ONOS_TIMEOUT_MS: z.coerce.number().int().positive().default(5000),
+  ONOS_SYNC_ENABLED: z
+    .enum(['true', 'false'])
+    .default('true')
+    .transform((v) => v === 'true'),
 });
 
 export type Env = z.infer<typeof envSchema>;
