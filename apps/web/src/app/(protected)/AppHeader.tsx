@@ -9,6 +9,7 @@ import { useAuthStore } from '@/store/authStore';
 const NAV = [
   { href: '/dashboard', label: 'Дашборд' },
   { href: '/plans', label: 'Плани' },
+  { href: '/devices', label: 'Обладнання' },
   { href: '/policies', label: 'Політики' },
 ];
 

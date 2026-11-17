@@ -12,6 +12,7 @@ interface ConfirmDialogProps {
   cancelLabel?: string;
   destructive?: boolean;
   loading?: boolean;
+  confirmDisabled?: boolean;
   error?: string | null;
   onConfirm: () => void;
   onCancel: () => void;
@@ -25,6 +26,7 @@ export function ConfirmDialog({
   cancelLabel = 'Скасувати',
   destructive = false,
   loading = false,
+  confirmDisabled = false,
   error,
   onConfirm,
   onCancel,
@@ -37,7 +39,12 @@ export function ConfirmDialog({
         <Button variant="secondary" onClick={onCancel} disabled={loading}>
           {cancelLabel}
         </Button>
-        <Button variant={destructive ? 'danger' : 'primary'} onClick={onConfirm} loading={loading}>
+        <Button
+          variant={destructive ? 'danger' : 'primary'}
+          onClick={onConfirm}
+          loading={loading}
+          disabled={confirmDisabled}
+        >
           {confirmLabel}
         </Button>
       </div>
