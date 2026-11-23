@@ -3,10 +3,12 @@
 interface CanvasToolbarProps {
   scale: number;
   gridVisible: boolean;
+  snapEnabled: boolean;
   onZoomIn: () => void;
   onZoomOut: () => void;
   onFit: () => void;
   onToggleGrid: () => void;
+  onToggleSnap: () => void;
 }
 
 const btn =
@@ -15,10 +17,12 @@ const btn =
 export function CanvasToolbar({
   scale,
   gridVisible,
+  snapEnabled,
   onZoomIn,
   onZoomOut,
   onFit,
   onToggleGrid,
+  onToggleSnap,
 }: CanvasToolbarProps) {
   return (
     <div className="absolute right-3 bottom-3 flex items-center gap-0.5 rounded-lg border border-border bg-surface/95 p-1 shadow-sm backdrop-blur">
@@ -42,6 +46,15 @@ export function CanvasToolbar({
         aria-pressed={gridVisible}
       >
         Сітка
+      </button>
+      <button
+        type="button"
+        className={`${btn} ${snapEnabled ? 'bg-surface-muted' : ''}`}
+        onClick={onToggleSnap}
+        aria-pressed={snapEnabled}
+        title="Прив’язувати пристрої до вузлів сітки"
+      >
+        Прив’язка
       </button>
     </div>
   );
