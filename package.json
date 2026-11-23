@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "pnpm --parallel dev",
+    "dev": "exec concurrently --names api,web --prefix-colors blue,magenta --kill-others-on-fail \"pnpm --dir apps/api exec nest start --watch\" \"pnpm --dir apps/web exec next dev\"",
     "dev:api": "pnpm --filter @physnet/api dev",
     "dev:web": "pnpm --filter @physnet/web dev",
     "build": "pnpm --recursive build",
@@ -27,6 +27,7 @@
   },
   "packageManager": "pnpm@10.22.0",
   "devDependencies": {
+    "concurrently": "^10.0.7",
     "husky": "^9.1.7",
     "lint-staged": "^17.6.0",
     "prettier": "^3.9.9"

@@ -19,6 +19,7 @@ import { Roles } from '../common/decorators/roles.decorator.js';
 import { DevicesService } from './devices.service.js';
 import { ListDevicesQuery } from './dto/list-devices.query.js';
 import { PurgeOfflineQuery } from './dto/purge-offline.query.js';
+import { UnplacedDevicesQuery } from './dto/unplaced-devices.query.js';
 import { UpdateDeviceDto } from './dto/update-device.dto.js';
 
 @ApiTags('devices')
@@ -30,6 +31,13 @@ export class DevicesController {
   @Get()
   findAll(@Query() query: ListDevicesQuery): Promise<NetworkDeviceWithPorts[]> {
     return this.devices.findAll(query);
+  }
+
+  @Get('unplaced')
+  findUnplaced(
+    @Query() query: UnplacedDevicesQuery,
+  ): Promise<NetworkDeviceWithPorts[]> {
+    return this.devices.findUnplaced(query.floorPlanId);
   }
 
   @Get('offline/summary')

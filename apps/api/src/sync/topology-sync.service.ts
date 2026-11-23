@@ -21,6 +21,8 @@ import { PrismaService } from '../prisma/prisma.service.js';
 
 const INTERVAL_NAME = 'onos-topology-sync';
 
+const noop = () => undefined;
+
 @Injectable()
 export class TopologySyncService
   implements OnApplicationBootstrap, OnApplicationShutdown
@@ -28,7 +30,8 @@ export class TopologySyncService
   private readonly logger = new Logger(TopologySyncService.name);
   private readonly enabled: boolean;
   private readonly intervalMs: number;
-  private running = false;
+  private inFlight: Promise<SyncSummary> | null = null;
+  private queued: Promise<void> | null = null;
   private status: SyncStatus;
 
   constructor(
@@ -74,23 +77,39 @@ export class TopologySyncService
   }
 
   getStatus(): SyncStatus {
-    return { ...this.status, running: this.running };
+    return { ...this.status, running: this.inFlight !== null };
   }
 
-  async syncSafely(): Promise<void> {
-    if (this.running) return;
-    try {
-      await this.sync();
-    } catch {
-      // already recorded in status / logs
-    }
+  requestSync(): Promise<void> {
+    if (!this.enabled) return Promise.resolve();
+    const current = this.inFlight;
+    if (!current) return this.syncSafely();
+    this.queued ??= current.then(noop, noop).then(() => {
+      this.queued = null;
+      return this.syncSafely();
+    });
+    return this.queued;
+  }
+
+  syncSafely(): Promise<void> {
+    if (this.inFlight) return this.inFlight.then(noop, noop);
+    return this.sync().then(noop, noop);
   }
 
   async sync(): Promise<SyncSummary> {
-    if (this.running) {
+    if (this.inFlight) {
       throw new Error('Synchronisation is already running');
     }
-    this.running = true;
+    const run = this.run();
+    this.inFlight = run;
+    try {
+      return await run;
+    } finally {
+      this.inFlight = null;
+    }
+  }
+
+  private async run(): Promise<SyncSummary> {
     this.status.lastRunAt = new Date().toISOString();
     try {
       const topology = mapSnapshot(await this.onos.getSnapshot());
@@ -115,8 +134,6 @@ export class TopologySyncService
         );
       }
       throw e;
-    } finally {
-      this.running = false;
     }
   }
 
@@ -343,11 +360,12 @@ export class TopologySyncService
           this.publishLinkStatus(m.id, m.floorPlanId, link, m.status);
       }
 
-      if (matches.length > 0) continue;
-
+      const drawnOn = new Set(matches.map((m) => m.floorPlanId));
       const plansA = placements.get(a.deviceId) ?? [];
       const plansB = new Set(placements.get(b.deviceId) ?? []);
-      for (const floorPlanId of plansA.filter((p) => plansB.has(p))) {
+      for (const floorPlanId of plansA.filter(
+        (p) => plansB.has(p) && !drawnOn.has(p),
+      )) {
         const created = await this.prisma.networkLink.create({
           data: {
             onosLinkId: link.onosLinkId,

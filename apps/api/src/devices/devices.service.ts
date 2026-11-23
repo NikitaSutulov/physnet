@@ -41,6 +41,19 @@ export class DevicesService {
     });
   }
 
+  async findUnplaced(floorPlanId: string): Promise<NetworkDeviceWithPorts[]> {
+    const plan = await this.prisma.floorPlan.count({
+      where: { id: floorPlanId },
+    });
+    if (!plan)
+      throw new NotFoundException(`Floor plan ${floorPlanId} not found`);
+    return this.prisma.networkDevice.findMany({
+      where: { spatialCoordinates: { none: { floorPlanId } } },
+      include: withPorts,
+      orderBy: [{ deviceType: 'desc' }, { name: 'asc' }],
+    });
+  }
+
   async findOne(id: string): Promise<NetworkDeviceWithPorts> {
     const device = await this.prisma.networkDevice.findUnique({
       where: { id },

@@ -33,6 +33,12 @@ const end = (onosDeviceId: string, portNumber: string) => ({
   onosDeviceId,
   portNumber,
 });
+const PLAN_DATA = {
+  title: 'e2e sync plan',
+  imageUrl: 'e2e/none.png',
+  width: 1000,
+  height: 800,
+};
 const CORE_LINK = linkId(end(S(1), '1'), end(S(2), '3'));
 const H1_LINK = linkId(end(S(2), '1'), end(H(1), HOST_PORT_NUMBER));
 
@@ -43,6 +49,7 @@ describe('ONOS synchronisation (e2e)', () => {
   let snapshot: OnosSnapshot;
   let token: string;
   let planId: string;
+  let adminId: string;
 
   const http = () => request(app.getHttpServer());
   const auth = { Authorization: '' };
@@ -116,18 +123,13 @@ describe('ONOS synchronisation (e2e)', () => {
       .expect(200);
     const body = login.body as { accessToken: string; user: { id: string } };
     token = body.accessToken;
+    adminId = body.user.id;
     auth.Authorization = `Bearer ${token}`;
 
     await cleanup();
     planId = (
       await prisma.floorPlan.create({
-        data: {
-          title: 'e2e sync plan',
-          imageUrl: 'e2e/none.png',
-          width: 1000,
-          height: 800,
-          createdBy: body.user.id,
-        },
+        data: { ...PLAN_DATA, createdBy: body.user.id },
       })
     ).id;
     snapshot = tree2Snapshot(IDS);
@@ -219,6 +221,26 @@ describe('ONOS synchronisation (e2e)', () => {
 
     // Idempotent: the next run creates nothing new.
     expect((await sync()).linksCreated).toBe(0);
+
+    // The same cable is drawn on a second plan holding both ends.
+    const other = await prisma.floorPlan.create({
+      data: { ...PLAN_DATA, createdBy: adminId },
+    });
+    await prisma.spatialCoordinate.createMany({
+      data: [s1, s2].map((d) => ({
+        deviceId: d.id,
+        floorPlanId: other.id,
+        x: 10,
+        y: 10,
+      })),
+    });
+    expect((await sync()).linksCreated).toBe(1);
+    expect(
+      await prisma.networkLink.count({
+        where: { floorPlanId: other.id, onosLinkId: CORE_LINK },
+      }),
+    ).toBe(1);
+    await prisma.floorPlan.delete({ where: { id: other.id } });
   });
 
   it('reflects failures and publishes events', async () => {

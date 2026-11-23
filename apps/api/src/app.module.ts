@@ -13,6 +13,7 @@ import { EventsModule } from './events/events.module.js';
 import { OnosModule } from './onos/onos.module.js';
 import { SyncModule } from './sync/sync.module.js';
 import { DevicesModule } from './devices/devices.module.js';
+import { TopologyModule } from './topology/topology.module.js';
 
 @Module({
   imports: [
@@ -32,6 +33,7 @@ import { DevicesModule } from './devices/devices.module.js';
     OnosModule,
     SyncModule,
     DevicesModule,
+    TopologyModule,
   ],
   controllers: [AppController],
 })
