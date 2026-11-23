@@ -1,7 +1,10 @@
 import type {
+  CreateLinkRequest,
   NetworkDeviceWithPorts,
   PlacedDevice,
+  TopologyLink,
   TopologyResponse,
+  UpdateLinkRequest,
   UpdatePositionRequest,
 } from '@physnet/shared';
 import { api } from './api';
@@ -32,4 +35,21 @@ export async function setDevicePosition(
 
 export async function removeDevicePosition(floorPlanId: string, deviceId: string): Promise<void> {
   await api.delete(`/floor-plans/${floorPlanId}/devices/${deviceId}/position`);
+}
+
+export async function createLink(
+  floorPlanId: string,
+  body: CreateLinkRequest,
+): Promise<TopologyLink> {
+  const { data } = await api.post<TopologyLink>(`/floor-plans/${floorPlanId}/links`, body);
+  return data;
+}
+
+export async function updateLink(linkId: string, body: UpdateLinkRequest): Promise<TopologyLink> {
+  const { data } = await api.patch<TopologyLink>(`/links/${linkId}`, body);
+  return data;
+}
+
+export async function deleteLink(linkId: string): Promise<void> {
+  await api.delete(`/links/${linkId}`);
 }

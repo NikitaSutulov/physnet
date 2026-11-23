@@ -1,6 +1,17 @@
 import { describe, expect, it } from 'vitest';
 import type { NetworkDeviceWithPorts, TopologyLink, TopologyResponse } from '@physnet/shared';
-import { linkPoints, normaliseRotation, placePoint, withoutDevice, withPosition } from './topology';
+import {
+  busyPortIds,
+  distanceToSegment,
+  insertWaypoint,
+  linkPoints,
+  normaliseRotation,
+  placePoint,
+  withLink,
+  withoutDevice,
+  withoutLink,
+  withPosition,
+} from './topology';
 
 const device = (id: string): NetworkDeviceWithPorts => ({
   id,
@@ -75,5 +86,40 @@ describe('topology helpers', () => {
     ]);
     expect(linkPoints(topo.links[0], positions)).toEqual([0, 0, 5, 5, 10, 10]);
     expect(linkPoints(topo.links[0], new Map([['a', { x: 0, y: 0 }]]))).toBeNull();
+  });
+
+  it('measures the distance to a segment', () => {
+    const a = { x: 0, y: 0 };
+    const b = { x: 10, y: 0 };
+    expect(distanceToSegment({ x: 5, y: 3 }, a, b)).toBe(3);
+    expect(distanceToSegment({ x: -4, y: 3 }, a, b)).toBe(5); // past the end
+    expect(distanceToSegment({ x: 3, y: 4 }, a, a)).toBe(5); // degenerate
+  });
+
+  it('inserts a bend into the clicked segment', () => {
+    const from = { x: 0, y: 0 };
+    const to = { x: 100, y: 0 };
+    // Path: from → (50, 50) → to. A click near the second half goes after it.
+    expect(insertWaypoint(from, to, [{ x: 50, y: 50 }], { x: 75, y: 26 })).toEqual([
+      { x: 50, y: 50 },
+      { x: 75, y: 26 },
+    ]);
+    expect(insertWaypoint(from, to, [{ x: 50, y: 50 }], { x: 24, y: 25 })).toEqual([
+      { x: 24, y: 25 },
+      { x: 50, y: 50 },
+    ]);
+    expect(insertWaypoint(from, to, [], { x: 40, y: 1 })).toEqual([{ x: 40, y: 1 }]);
+  });
+
+  it('lists ports that carry a cable', () => {
+    expect([...busyPortIds(topo.links)].sort()).toEqual(['a1', 'b1']);
+  });
+
+  it('adds, replaces and removes cables in the cache', () => {
+    const added = withLink(topo, link('bc', 'b', 'c'));
+    expect(added.links.map((l) => l.id)).toEqual(['ab', 'bc']);
+    const replaced = withLink(added, { ...link('ab', 'a', 'b'), cableType: 'OPTICAL' });
+    expect(replaced.links[0].cableType).toBe('OPTICAL');
+    expect(withoutLink(replaced, 'ab').links.map((l) => l.id)).toEqual(['bc']);
   });
 });

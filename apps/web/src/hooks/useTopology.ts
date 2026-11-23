@@ -1,15 +1,21 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type {
+  CreateLinkRequest,
   NetworkDeviceWithPorts,
+  TopologyLink,
   TopologyResponse,
+  UpdateLinkRequest,
   UpdatePositionRequest,
 } from '@physnet/shared';
-import { withoutDevice, withPosition } from '@/lib/topology';
+import { withLink, withoutDevice, withoutLink, withPosition } from '@/lib/topology';
 import {
+  createLink,
+  deleteLink,
   getTopology,
   listUnplacedDevices,
   removeDevicePosition,
   setDevicePosition,
+  updateLink,
 } from '@/services/topology';
 import { deviceKeys } from './useDevices';
 
@@ -104,6 +110,50 @@ export function useUnplaceDevice(planId: string) {
       return before;
     },
     onError: (_error, _deviceId, before) => cache.restore(before),
+    onSettled: () => cache.settle(),
+  });
+}
+
+export function useCreateLink(planId: string) {
+  const cache = useOptimistic(planId);
+  return useMutation({
+    mutationFn: (body: CreateLinkRequest) => createLink(planId, body),
+    onSuccess: async (link) => {
+      const { topology } = await cache.snapshot();
+      cache.write(topology && withLink(topology, link));
+    },
+    onSettled: () => cache.settle(),
+  });
+}
+
+export interface UpdateLinkInput extends UpdateLinkRequest {
+  link: TopologyLink;
+}
+
+export function useUpdateLink(planId: string) {
+  const cache = useOptimistic(planId);
+  return useMutation({
+    mutationFn: ({ link, ...body }: UpdateLinkInput) => updateLink(link.id, body),
+    onMutate: async ({ link, ...body }) => {
+      const before = await cache.snapshot();
+      cache.write(before.topology && withLink(before.topology, { ...link, ...body }));
+      return before;
+    },
+    onError: (_error, _input, before) => cache.restore(before),
+    onSettled: () => cache.settle(),
+  });
+}
+
+export function useDeleteLink(planId: string) {
+  const cache = useOptimistic(planId);
+  return useMutation({
+    mutationFn: deleteLink,
+    onMutate: async (linkId: string) => {
+      const before = await cache.snapshot();
+      cache.write(before.topology && withoutLink(before.topology, linkId));
+      return before;
+    },
+    onError: (_error, _linkId, before) => cache.restore(before),
     onSettled: () => cache.settle(),
   });
 }

@@ -11,17 +11,18 @@ import {
   type DragEvent as ReactDragEvent,
 } from 'react';
 import { Stage } from 'react-konva';
-import type { PlacedDevice, TopologyLink } from '@physnet/shared';
+import type { PlacedDevice, TopologyLink, Waypoint } from '@physnet/shared';
 import { useElementSize } from '@/hooks/useElementSize';
 import { useImage } from '@/hooks/useImage';
 import { fitCamera, zoomAt, ZOOM_STEP, type Point } from '@/lib/geometry';
-import { DEVICE_DRAG_TYPE, placePoint } from '@/lib/topology';
+import { DEVICE_DRAG_TYPE, insertWaypoint, placePoint } from '@/lib/topology';
 import { useCanvasStore } from '@/store/canvasStore';
 import { BackgroundLayer } from './BackgroundLayer';
 import { CanvasToolbar } from './CanvasToolbar';
 import { DevicesLayer } from './DevicesLayer';
 import { InteractionLayer } from './InteractionLayer';
 import { LinksLayer } from './LinksLayer';
+import type { Selection, WaypointDraft } from './selection';
 
 export interface FloorCanvasProps {
   planId: string;
@@ -30,8 +31,11 @@ export interface FloorCanvasProps {
   height: number;
   devices: PlacedDevice[];
   links: TopologyLink[];
-  selectedId: string | null;
-  onSelect: (deviceId: string | null) => void;
+  selection: Selection | null;
+  onSelect: (selection: Selection | null) => void;
+  connectFromId: string | null;
+  onStartConnect: (deviceId: string) => void;
+  onWaypointsChange: (link: TopologyLink, waypoints: Waypoint[]) => void;
   onMove: (device: PlacedDevice, point: Point) => void;
   onRotate: (device: PlacedDevice, rotation: number) => void;
   onDropDevice: (deviceId: string, point: Point) => void;
@@ -44,8 +48,11 @@ export default function FloorCanvas({
   height,
   devices,
   links,
-  selectedId,
+  selection,
   onSelect,
+  connectFromId,
+  onStartConnect,
+  onWaypointsChange,
   onMove,
   onRotate,
   onDropDevice,
@@ -55,6 +62,8 @@ export default function FloorCanvas({
   const [image, imageStatus] = useImage(imageUrl);
   const [dropActive, setDropActive] = useState(false);
   const [dragging, setDragging] = useState<{ id: string; point: Point } | null>(null);
+  const [draft, setDraft] = useState<WaypointDraft | null>(null);
+  const [pointer, setPointer] = useState<{ fromId: string; point: Point } | null>(null);
 
   const camera = useCanvasStore((s) => s.camera);
   const setCamera = useCanvasStore((s) => s.setCamera);
@@ -135,10 +144,38 @@ export default function FloorCanvas({
     return map;
   }, [devices, dragging]);
 
-  const selected = useMemo(
-    () => devices.find((d) => d.id === selectedId) ?? null,
-    [devices, selectedId],
+  const selectedDeviceId = selection?.kind === 'device' ? selection.id : null;
+  const selectedLinkId = selection?.kind === 'link' ? selection.id : null;
+  const selectedDevice = useMemo(
+    () => devices.find((d) => d.id === selectedDeviceId) ?? null,
+    [devices, selectedDeviceId],
   );
+  const selectedLink = useMemo(
+    () => links.find((l) => l.id === selectedLinkId) ?? null,
+    [links, selectedLinkId],
+  );
+
+  const selectDevice = useCallback((id: string) => onSelect({ kind: 'device', id }), [onSelect]);
+  const selectLink = useCallback((id: string) => onSelect({ kind: 'link', id }), [onSelect]);
+
+  const handleClickSelectedLink = useCallback(
+    (link: TopologyLink, point: Point) => {
+      const from = positions.get(link.source.deviceId);
+      const to = positions.get(link.destination.deviceId);
+      if (!from || !to) return;
+      onWaypointsChange(
+        link,
+        insertWaypoint(from, to, link.waypoints, placePoint(point, plan, snapStep)),
+      );
+    },
+    [positions, plan, snapStep, onWaypointsChange],
+  );
+
+  const connectFrom = connectFromId ? positions.get(connectFromId) : undefined;
+  const connectPreview =
+    connectFrom && pointer?.fromId === connectFromId
+      ? { from: connectFrom, to: pointer.point }
+      : null;
 
   const acceptsDrop = (e: ReactDragEvent) => e.dataTransfer.types.includes(DEVICE_DRAG_TYPE);
 
@@ -186,9 +223,16 @@ export default function FloorCanvas({
           onDragEnd={handleStageDragEnd}
           onClick={(e) => e.target === e.target.getStage() && onSelect(null)}
           onTap={(e) => e.target === e.target.getStage() && onSelect(null)}
+          onMouseMove={(e) => {
+            const point = connectFromId && e.target.getStage()?.getRelativePointerPosition();
+            if (point) setPointer({ fromId: connectFromId, point });
+          }}
           onMouseDown={(e) => (e.target.getStage()!.container().style.cursor = 'grabbing')}
-          onMouseUp={(e) => (e.target.getStage()!.container().style.cursor = 'grab')}
-          style={{ cursor: 'grab' }}
+          onMouseUp={(e) =>
+            (e.target.getStage()!.container().style.cursor = connectFromId ? 'crosshair' : 'grab')
+          }
+          onContextMenu={(e) => e.evt.preventDefault()}
+          style={{ cursor: connectFromId ? 'crosshair' : 'grab' }}
         >
           <BackgroundLayer
             image={image}
@@ -198,17 +242,36 @@ export default function FloorCanvas({
             gridVisible={gridVisible}
             gridStep={gridStep}
           />
-          <LinksLayer links={links} positions={positions} />
+          <LinksLayer
+            links={links}
+            positions={positions}
+            selectedId={selectedLinkId}
+            draft={draft}
+            onSelect={selectLink}
+            onClickSelected={handleClickSelectedLink}
+          />
           <DevicesLayer
             devices={devices}
             camera={camera}
             plan={plan}
-            selectedId={selectedId}
-            onSelect={onSelect}
+            selectedId={selectedDeviceId}
+            onSelect={selectDevice}
+            onStartConnect={onStartConnect}
             onDragMove={handleDeviceDragMove}
             onDragEnd={handleDeviceDragEnd}
           />
-          <InteractionLayer selected={selected} onRotate={onRotate} />
+          <InteractionLayer
+            camera={camera}
+            plan={plan}
+            snapStep={snapStep}
+            selectedDevice={selectedDevice}
+            onRotate={onRotate}
+            selectedLink={selectedLink}
+            draft={draft}
+            onDraft={setDraft}
+            onWaypointsChange={onWaypointsChange}
+            connectPreview={connectPreview}
+          />
         </Stage>
       )}
 

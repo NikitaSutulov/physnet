@@ -4,6 +4,7 @@ import type {
   TopologyLink,
   TopologyResponse,
   UpdatePositionRequest,
+  Waypoint,
 } from '@physnet/shared';
 import { clamp, snap, type Point, type Size } from './geometry';
 
@@ -64,3 +65,48 @@ export function linkPoints(
 }
 
 export const DEVICE_DRAG_TYPE = 'application/x-physnet-device';
+
+export function distanceToSegment(p: Point, a: Point, b: Point): number {
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  const lengthSq = dx * dx + dy * dy;
+  const t = lengthSq === 0 ? 0 : clamp(((p.x - a.x) * dx + (p.y - a.y) * dy) / lengthSq, 0, 1);
+  return Math.hypot(p.x - (a.x + t * dx), p.y - (a.y + t * dy));
+}
+
+export function insertWaypoint(
+  from: Point,
+  to: Point,
+  waypoints: Waypoint[],
+  at: Point,
+): Waypoint[] {
+  const path = [from, ...waypoints, to];
+  let best = 0;
+  let bestDistance = Infinity;
+  for (let i = 0; i < path.length - 1; i++) {
+    const d = distanceToSegment(at, path[i], path[i + 1]);
+    if (d < bestDistance) {
+      bestDistance = d;
+      best = i;
+    }
+  }
+  return [...waypoints.slice(0, best), { x: at.x, y: at.y }, ...waypoints.slice(best)];
+}
+
+export function busyPortIds(links: TopologyLink[]): Set<string> {
+  return new Set(links.flatMap((l) => [l.source.portId, l.destination.portId]));
+}
+
+export function withLink(topology: TopologyResponse, link: TopologyLink): TopologyResponse {
+  const exists = topology.links.some((l) => l.id === link.id);
+  return {
+    ...topology,
+    links: exists
+      ? topology.links.map((l) => (l.id === link.id ? link : l))
+      : [...topology.links, link],
+  };
+}
+
+export function withoutLink(topology: TopologyResponse, linkId: string): TopologyResponse {
+  return { ...topology, links: topology.links.filter((l) => l.id !== linkId) };
+}

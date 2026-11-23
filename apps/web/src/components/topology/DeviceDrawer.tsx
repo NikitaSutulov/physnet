@@ -12,10 +12,19 @@ interface Props {
   removing: boolean;
   error: string | null;
   onRemove: () => void;
+  onConnect: () => void;
   onClose: () => void;
 }
 
-export function DeviceDrawer({ device, linkCount, removing, error, onRemove, onClose }: Props) {
+export function DeviceDrawer({
+  device,
+  linkCount,
+  removing,
+  error,
+  onRemove,
+  onConnect,
+  onClose,
+}: Props) {
   const [confirming, setConfirming] = useState(false);
   const active = device.status === 'ACTIVE';
   const { x, y, rotation } = device.position;
@@ -80,7 +89,10 @@ export function DeviceDrawer({ device, linkCount, removing, error, onRemove, onC
         )}
       </div>
 
-      <footer className="border-t border-border p-3">
+      <footer className="flex flex-col gap-2 border-t border-border p-3">
+        <Button className="w-full" onClick={onConnect} disabled={device.ports.length === 0}>
+          Провести кабель
+        </Button>
         <Button
           variant="secondary"
           className="w-full"
@@ -89,7 +101,7 @@ export function DeviceDrawer({ device, linkCount, removing, error, onRemove, onC
         >
           Прибрати з плану
         </Button>
-        {error && !confirming && <p className="mt-2 text-xs text-danger">{error}</p>}
+        {error && !confirming && <p className="text-xs text-danger">{error}</p>}
       </footer>
 
       <ConfirmDialog

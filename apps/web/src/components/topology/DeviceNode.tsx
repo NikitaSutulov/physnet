@@ -22,6 +22,7 @@ interface DeviceNodeProps {
   plan: Size;
   selected: boolean;
   onSelect: (id: string) => void;
+  onStartConnect: (id: string) => void;
   onDragMove: (id: string, point: Point) => void;
   onDragEnd: (device: PlacedDevice, point: Point) => Point;
 }
@@ -32,6 +33,7 @@ export const DeviceNode = memo(function DeviceNode({
   plan,
   selected,
   onSelect,
+  onStartConnect,
   onDragMove,
   onDragEnd,
 }: DeviceNodeProps) {
@@ -62,6 +64,8 @@ export const DeviceNode = memo(function DeviceNode({
         onSelect(device.id);
       }}
       onTap={() => onSelect(device.id)}
+      onDblClick={() => onStartConnect(device.id)}
+      onDblTap={() => onStartConnect(device.id)}
       onMouseEnter={(e) => setCursor(e, 'move')}
       onMouseLeave={(e) => setCursor(e, 'grab')}
       onDragMove={(e: KonvaEventObject<DragEvent>) =>

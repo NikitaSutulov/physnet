@@ -24,3 +24,8 @@ export const DEVICE_TYPE_LABELS: Record<string, string> = {
   ACCESS_POINT: 'Точка доступу',
   OTHER: 'Інше',
 };
+
+export const CABLE_TYPE_LABELS: Record<string, string> = {
+  COPPER: 'Мідь',
+  OPTICAL: 'Оптика',
+};

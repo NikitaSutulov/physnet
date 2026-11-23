@@ -11,6 +11,7 @@ interface DevicesLayerProps {
   plan: Size;
   selectedId: string | null;
   onSelect: (id: string) => void;
+  onStartConnect: (id: string) => void;
   onDragMove: (id: string, point: Point) => void;
   onDragEnd: (device: PlacedDevice, point: Point) => Point;
 }
