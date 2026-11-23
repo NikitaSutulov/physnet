@@ -17,6 +17,7 @@ import {
   setDevicePosition,
   updateLink,
 } from '@/services/topology';
+import { useRealtimeStore } from '@/store/realtimeStore';
 import { deviceKeys } from './useDevices';
 
 export const topologyKeys = {
@@ -25,10 +26,11 @@ export const topologyKeys = {
 };
 
 export function useTopology(planId: string) {
+  const online = useRealtimeStore((s) => s.status === 'online');
   return useQuery({
     queryKey: topologyKeys.detail(planId),
     queryFn: () => getTopology(planId),
-    refetchInterval: 5_000,
+    refetchInterval: online ? false : 5_000,
   });
 }
 

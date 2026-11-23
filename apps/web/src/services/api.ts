@@ -1,14 +1,17 @@
 import axios, { AxiosError } from 'axios';
-import type { ApiError } from '@physnet/shared';
+import { SOCKET_ID_HEADER, type ApiError } from '@physnet/shared';
 import { API_URL } from '@/lib/config';
 import { clearToken, getToken } from '@/lib/auth-cookie';
 import { useAuthStore } from '@/store/authStore';
+import { currentSocketId } from './socket';
 
 export const api = axios.create({ baseURL: API_URL });
 
 api.interceptors.request.use((config) => {
   const token = getToken();
   if (token) config.headers.Authorization = `Bearer ${token}`;
+  const socketId = currentSocketId();
+  if (socketId) config.headers[SOCKET_ID_HEADER] = socketId;
   return config;
 });
 

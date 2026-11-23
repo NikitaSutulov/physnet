@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { RealtimeIndicator } from '@/components/RealtimeIndicator';
 import { Button } from '@/components/ui/Button';
 import { forceLogout } from '@/services/api';
 import { useAuthStore } from '@/store/authStore';
@@ -41,6 +42,7 @@ export function AppHeader() {
           })}
         </nav>
         <div className="ml-auto flex items-center gap-3">
+          <RealtimeIndicator />
           {user && (
             <span className="hidden text-sm text-muted sm:inline">
               {user.firstName} {user.lastName}

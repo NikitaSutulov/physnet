@@ -9,6 +9,7 @@ import type {
   TopologyLink,
   Waypoint,
 } from '@physnet/shared';
+import { useRealtime } from '@/hooks/useRealtime';
 import {
   useCreateLink,
   useDeleteLink,
@@ -36,6 +37,7 @@ const FloorCanvas = dynamic(() => import('./FloorCanvas'), {
 export function PlanWorkspace({ plan }: { plan: FloorPlanResponse }) {
   const planId = plan.id;
   const { data: topology } = useTopology(planId);
+  useRealtime(planId);
   const unplaced = useUnplacedDevices(planId);
   const moveDevice = useMoveDevice(planId);
   const unplaceDevice = useUnplaceDevice(planId);
