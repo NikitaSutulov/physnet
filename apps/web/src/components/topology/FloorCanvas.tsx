@@ -22,6 +22,7 @@ import { CanvasToolbar } from './CanvasToolbar';
 import { DevicesLayer } from './DevicesLayer';
 import { InteractionLayer } from './InteractionLayer';
 import { LinksLayer } from './LinksLayer';
+import { MiniMap } from './MiniMap';
 import type { Selection, WaypointDraft } from './selection';
 
 export interface FloorCanvasProps {
@@ -89,7 +90,9 @@ export default function FloorCanvas({
   useEffect(() => {
     if (fittedFor.current === planId || !viewport.width || !viewport.height) return;
     fittedFor.current = planId;
-    fit();
+    const { keepCameraFor, setKeepCameraFor } = useCanvasStore.getState();
+    if (keepCameraFor === planId) setKeepCameraFor(null);
+    else fit();
   }, [planId, viewport, fit]);
 
   const zoomBy = useCallback(
@@ -283,6 +286,18 @@ export default function FloorCanvas({
               : 'Завантаження плану…'}
           </span>
         </div>
+      )}
+
+      {viewport.width > 0 && (
+        <MiniMap
+          image={image}
+          plan={plan}
+          devices={devices}
+          links={links}
+          camera={camera}
+          viewport={viewport}
+          onCameraChange={setCamera}
+        />
       )}
 
       <CanvasToolbar

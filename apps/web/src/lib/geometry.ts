@@ -66,3 +66,20 @@ export function fitCamera(plan: Size, viewport: Size, padding = 24): Camera {
 export function snap(value: number, step: number): number {
   return step > 0 ? Math.round(value / step) * step : value;
 }
+
+export function visibleRect(camera: Camera, viewport: Size): Point & Size {
+  const topLeft = screenToPlan({ x: 0, y: 0 }, camera);
+  return {
+    ...topLeft,
+    width: viewport.width / camera.scale,
+    height: viewport.height / camera.scale,
+  };
+}
+
+export function centreOn(camera: Camera, viewport: Size, point: Point): Camera {
+  return {
+    scale: camera.scale,
+    x: viewport.width / 2 - point.x * camera.scale,
+    y: viewport.height / 2 - point.y * camera.scale,
+  };
+}

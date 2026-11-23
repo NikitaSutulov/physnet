@@ -7,10 +7,12 @@ interface CanvasState {
   gridVisible: boolean;
   gridStep: number;
   snapEnabled: boolean;
+  keepCameraFor: string | null;
   setCamera: (camera: Camera) => void;
   setViewport: (viewport: Size) => void;
   toggleGrid: () => void;
   toggleSnap: () => void;
+  setKeepCameraFor: (planId: string | null) => void;
 }
 
 export const useCanvasStore = create<CanvasState>((set) => ({
@@ -19,8 +21,10 @@ export const useCanvasStore = create<CanvasState>((set) => ({
   gridVisible: true,
   gridStep: 50,
   snapEnabled: true,
+  keepCameraFor: null,
   setCamera: (camera) => set({ camera }),
   setViewport: (viewport) => set({ viewport }),
   toggleGrid: () => set((s) => ({ gridVisible: !s.gridVisible })),
   toggleSnap: () => set((s) => ({ snapEnabled: !s.snapEnabled })),
+  setKeepCameraFor: (keepCameraFor) => set({ keepCameraFor }),
 }));

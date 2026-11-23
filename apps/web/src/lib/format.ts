@@ -1,6 +1,5 @@
 const relative = new Intl.RelativeTimeFormat('uk', { numeric: 'auto' });
 
-/** "5 хвилин тому", "щойно", … */
 export function timeAgo(iso: string | null | undefined, now = Date.now()): string {
   if (!iso) return '—';
   const seconds = Math.round((new Date(iso).getTime() - now) / 1000);
@@ -28,4 +27,14 @@ export const DEVICE_TYPE_LABELS: Record<string, string> = {
 export const CABLE_TYPE_LABELS: Record<string, string> = {
   COPPER: 'Мідь',
   OPTICAL: 'Оптика',
+};
+
+export const EVENT_TYPE_LABELS: Record<string, string> = {
+  'device.discovered': 'Новий пристрій',
+  'device.status': 'Стан пристрою',
+  'device.removed': 'Видалення',
+  'port.status': 'Стан порту',
+  'link.status': 'Стан лінку',
+  'link.created': 'Новий лінк',
+  'controller.status': 'Контролер',
 };

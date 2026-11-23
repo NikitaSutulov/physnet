@@ -2,6 +2,7 @@
 
 import axios from 'axios';
 import Link from 'next/link';
+import { FloorSwitcher } from '@/components/plans/FloorSwitcher';
 import { PlanWorkspace } from '@/components/topology/PlanWorkspace';
 import { useFloorPlan } from '@/hooks/useFloorPlans';
 import { errorMessage } from '@/services/api';
@@ -36,6 +37,7 @@ export function PlanView({ id }: { id: string }) {
             <span className="text-sm text-muted">
               {plan.building || 'Без будівлі'} · поверх {plan.floorLevel}
             </span>
+            <FloorSwitcher plan={plan} />
             <span className="ml-auto font-mono text-xs text-muted">
               {plan.width}×{plan.height} px
             </span>
