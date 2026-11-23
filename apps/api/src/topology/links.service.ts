@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import type { TopologyLink, Waypoint } from '@physnet/shared';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { TopologyEventsService } from '../realtime/topology-events.service.js';
 import type { CreateLinkDto, UpdateLinkDto } from './dto/link.dto.js';
 import { toTopologyLink } from './topology.mapper.js';
 
@@ -19,9 +20,16 @@ interface PlanSize {
 
 @Injectable()
 export class LinksService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly events: TopologyEventsService,
+  ) {}
 
-  async create(floorPlanId: string, dto: CreateLinkDto): Promise<TopologyLink> {
+  async create(
+    floorPlanId: string,
+    dto: CreateLinkDto,
+    origin?: string,
+  ): Promise<TopologyLink> {
     const plan = await this.prisma.floorPlan.findUnique({
       where: { id: floorPlanId },
       select: { width: true, height: true },
@@ -87,10 +95,14 @@ export class LinksService {
       },
       include: withEndpoints,
     });
-    return toTopologyLink(link);
+    return this.announce(toTopologyLink(link), origin);
   }
 
-  async update(id: string, dto: UpdateLinkDto): Promise<TopologyLink> {
+  async update(
+    id: string,
+    dto: UpdateLinkDto,
+    origin?: string,
+  ): Promise<TopologyLink> {
     const link = await this.prisma.networkLink.findUnique({
       where: { id },
       select: { floorPlan: { select: { width: true, height: true } } },
@@ -106,13 +118,13 @@ export class LinksService {
       },
       include: withEndpoints,
     });
-    return toTopologyLink(updated);
+    return this.announce(toTopologyLink(updated), origin);
   }
 
-  async remove(id: string): Promise<void> {
+  async remove(id: string, origin?: string): Promise<void> {
     const link = await this.prisma.networkLink.findUnique({
       where: { id },
-      select: { onosLinkId: true },
+      select: { onosLinkId: true, floorPlanId: true },
     });
     if (!link) throw new NotFoundException(`Link ${id} not found`);
     if (link.onosLinkId) {
@@ -121,6 +133,15 @@ export class LinksService {
       );
     }
     await this.prisma.networkLink.delete({ where: { id } });
+    this.events.linkDeleted(
+      { floorPlanId: link.floorPlanId, linkId: id },
+      origin,
+    );
+  }
+
+  private announce(link: TopologyLink, origin?: string): TopologyLink {
+    this.events.linkUpdated({ floorPlanId: link.floorPlanId, link }, origin);
+    return link;
   }
 }
 

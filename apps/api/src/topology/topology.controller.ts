@@ -10,6 +10,7 @@ import {
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import type { PlacedDevice, TopologyResponse } from '@physnet/shared';
+import { SocketId } from '../realtime/socket-id.decorator.js';
 import { UpdatePositionDto } from './dto/update-position.dto.js';
 import { TopologyService } from './topology.service.js';
 
@@ -31,8 +32,9 @@ export class TopologyController {
     @Param('id', ParseUUIDPipe) id: string,
     @Param('deviceId', ParseUUIDPipe) deviceId: string,
     @Body() dto: UpdatePositionDto,
+    @SocketId() origin?: string,
   ): Promise<PlacedDevice> {
-    return this.topology.setPosition(id, deviceId, dto);
+    return this.topology.setPosition(id, deviceId, dto, origin);
   }
 
   @Delete('devices/:deviceId/position')
@@ -40,7 +42,8 @@ export class TopologyController {
   removePosition(
     @Param('id', ParseUUIDPipe) id: string,
     @Param('deviceId', ParseUUIDPipe) deviceId: string,
+    @SocketId() origin?: string,
   ): Promise<void> {
-    return this.topology.removePosition(id, deviceId);
+    return this.topology.removePosition(id, deviceId, origin);
   }
 }

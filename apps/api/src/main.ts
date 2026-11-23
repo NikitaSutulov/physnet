@@ -5,16 +5,16 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module.js';
 import { AllExceptionsFilter } from './common/filters/http-exception.filter.js';
 import type { Env } from './config/env.js';
+import { CorsIoAdapter } from './realtime/cors-io.adapter.js';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   const config = app.get<ConfigService<Env, true>>(ConfigService);
 
   app.setGlobalPrefix('api');
-  app.enableCors({
-    origin: config.get('CORS_ORIGIN', { infer: true }).split(','),
-    credentials: true,
-  });
+  const origins = config.get('CORS_ORIGIN', { infer: true }).split(',');
+  app.enableCors({ origin: origins, credentials: true });
+  app.useWebSocketAdapter(new CorsIoAdapter(app, origins));
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,

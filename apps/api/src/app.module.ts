@@ -14,6 +14,7 @@ import { OnosModule } from './onos/onos.module.js';
 import { SyncModule } from './sync/sync.module.js';
 import { DevicesModule } from './devices/devices.module.js';
 import { TopologyModule } from './topology/topology.module.js';
+import { RealtimeModule } from './realtime/realtime.module.js';
 
 @Module({
   imports: [
@@ -34,6 +35,7 @@ import { TopologyModule } from './topology/topology.module.js';
     SyncModule,
     DevicesModule,
     TopologyModule,
+    RealtimeModule,
   ],
   controllers: [AppController],
 })

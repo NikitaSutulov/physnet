@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import type { PlacedDevice, TopologyResponse } from '@physnet/shared';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { TopologyEventsService } from '../realtime/topology-events.service.js';
 import { TopologySyncService } from '../sync/topology-sync.service.js';
 import type { UpdatePositionDto } from './dto/update-position.dto.js';
 import {
@@ -31,6 +32,7 @@ export class TopologyService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly sync: TopologySyncService,
+    private readonly events: TopologyEventsService,
   ) {}
 
   async getTopology(floorPlanId: string): Promise<TopologyResponse> {
@@ -61,6 +63,7 @@ export class TopologyService {
     floorPlanId: string,
     deviceId: string,
     dto: UpdatePositionDto,
+    origin?: string,
   ): Promise<PlacedDevice> {
     const plan = await this.prisma.floorPlan.findUnique({
       where: { id: floorPlanId },
@@ -99,10 +102,16 @@ export class TopologyService {
     if (!placedBefore) {
       await withTimeout(this.sync.requestSync(), LINK_SYNC_WAIT_MS);
     }
-    return toPlacedDevice(device, coordinate);
+    const placed = toPlacedDevice(device, coordinate);
+    this.events.deviceMoved({ floorPlanId, device: placed }, origin);
+    return placed;
   }
 
-  async removePosition(floorPlanId: string, deviceId: string): Promise<void> {
+  async removePosition(
+    floorPlanId: string,
+    deviceId: string,
+    origin?: string,
+  ): Promise<void> {
     await this.prisma.$transaction(async (tx) => {
       const { count } = await tx.spatialCoordinate.deleteMany({
         where: { deviceId, floorPlanId },
@@ -117,5 +126,6 @@ export class TopologyService {
         },
       });
     });
+    this.events.deviceUnplaced({ floorPlanId, deviceId }, origin);
   }
 }
