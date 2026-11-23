@@ -5,5 +5,6 @@ export * from './devices.ts';
 export * from './events.ts';
 export * from './topology.ts';
 export * from './realtime.ts';
+export * from './dashboard.ts';
 
 export const APP_NAME = 'PhysNet';

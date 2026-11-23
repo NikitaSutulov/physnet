@@ -12,6 +12,7 @@ import type { SyncStatus, SyncSummary } from '@physnet/shared';
 import type { Env } from '../config/env.js';
 import { SystemEventsService } from '../events/system-events.service.js';
 import {
+  HOST_PORT_NUMBER,
   mapSnapshot,
   type MappedLink,
   type MappedTopology,
@@ -316,12 +317,23 @@ export class TopologySyncService
         id: true,
         portNumber: true,
         deviceId: true,
-        device: { select: { onosDeviceId: true } },
+        device: { select: { onosDeviceId: true, name: true } },
       },
     });
     const portByKey = new Map(
       ports.map((p) => [`${p.device.onosDeviceId}/${p.portNumber}`, p]),
     );
+    const portById = new Map(ports.map((p) => [p.id, p]));
+    const label = (x?: (typeof ports)[number], y?: (typeof ports)[number]) =>
+      [x, y]
+        .map((p) =>
+          !p
+            ? '?'
+            : p.portNumber === HOST_PORT_NUMBER
+              ? p.device.name
+              : `${p.device.name}/${p.portNumber}`,
+        )
+        .join(' ↔ ');
 
     const stored = await this.prisma.networkLink.findMany({
       select: {
@@ -357,7 +369,13 @@ export class TopologySyncService
         });
         summary.linksUpdated++;
         if (m.status !== link.status)
-          this.publishLinkStatus(m.id, m.floorPlanId, link, m.status);
+          this.publishLinkStatus(
+            m.id,
+            m.floorPlanId,
+            link,
+            m.status,
+            label(a, b),
+          );
       }
 
       const drawnOn = new Set(matches.map((m) => m.floorPlanId));
@@ -381,7 +399,7 @@ export class TopologySyncService
         this.events.publish({
           type: 'link.created',
           severity: 'info',
-          message: `Додано лінію зв’язку ${link.onosLinkId}`,
+          message: `Нова лінія ${label(a, b)}`,
           linkId: created.id,
           floorPlanIds: [floorPlanId],
           data: { onosLinkId: link.onosLinkId },
@@ -399,7 +417,7 @@ export class TopologySyncService
       this.events.publish({
         type: 'link.status',
         severity: 'critical',
-        message: `Лінія ${l.onosLinkId} розірвана`,
+        message: `Лінія ${label(portById.get(l.sourcePortId), portById.get(l.destinationPortId))} розірвана`,
         linkId: l.id,
         floorPlanIds: [l.floorPlanId],
         data: { from: l.status, to: 'DOWN', onosLinkId: l.onosLinkId },
@@ -412,11 +430,12 @@ export class TopologySyncService
     floorPlanId: string,
     link: MappedLink,
     from: string,
+    label: string,
   ) {
     this.events.publish({
       type: 'link.status',
       severity: link.status === 'ACTIVE' ? 'info' : 'critical',
-      message: `Лінія ${link.onosLinkId}: ${link.status === 'ACTIVE' ? 'відновлена' : 'розірвана'}`,
+      message: `Лінія ${label} ${link.status === 'ACTIVE' ? 'відновлена' : 'розірвана'}`,
       linkId,
       floorPlanIds: [floorPlanId],
       data: { from, to: link.status, onosLinkId: link.onosLinkId },

@@ -258,9 +258,11 @@ describe('ONOS synchronisation (e2e)', () => {
     )!.ports;
     s2ports.find((p) => p.port === '2')!.isEnabled = false;
 
+    // Counters are global: the fake controller does not report the other
+    // devices of the development database either, so check our own ones.
     const summary = await sync();
-    expect(summary.linksWentDown).toBe(1);
-    expect(summary.devicesWentOffline).toBe(1);
+    expect(summary.linksWentDown).toBeGreaterThanOrEqual(1);
+    expect(summary.devicesWentOffline).toBeGreaterThanOrEqual(1);
 
     expect((await device(dpid(3, IDS.dpidPrefix))).status).toBe('OFFLINE');
     const s2 = await device(dpid(2, IDS.dpidPrefix));
@@ -279,6 +281,10 @@ describe('ONOS synchronisation (e2e)', () => {
     );
     const linkEvent = events.find((e) => e.type === 'link.status')!;
     expect(linkEvent.floorPlanIds).toEqual([planId]);
+    // Readable: device names (s1 was renamed above) and ports, not ONOS ids.
+    expect(linkEvent.message).toMatch(
+      /^Лінія Core switch\/1 ↔ .+\/3 розірвана$/,
+    );
 
     // Recovery brings the link back up.
     snapshot = tree2Snapshot(IDS);
@@ -297,7 +303,8 @@ describe('ONOS synchronisation (e2e)', () => {
     await http().delete(`/api/devices/${h1.id}`).set(auth).expect(409);
 
     snapshot.hosts = snapshot.hosts.filter((h) => h.id !== H(1));
-    expect((await sync()).devicesWentOffline).toBe(1);
+    await sync();
+    expect((await device(H(1))).status).toBe('OFFLINE');
 
     const summary = (
       await http().get('/api/devices/offline/summary').set(auth).expect(200)
