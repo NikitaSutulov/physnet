@@ -5,6 +5,7 @@ import type { App } from 'supertest/types.js';
 import type {
   NetworkDeviceWithPorts,
   PlacedDevice,
+  TopologyLink,
   TopologyResponse,
 } from '@physnet/shared';
 import type { PrismaService } from '../src/prisma/prisma.service.js';
@@ -192,5 +193,105 @@ describe('Topology (e2e)', () => {
     expect(after.devices.map((d) => d.id)).toEqual([a.id]);
     expect(after.links).toHaveLength(0);
     await http().delete(positionUrl(b.id)).set(auth).expect(404);
+  });
+
+  it('draws, edits and deletes a cable by hand', async () => {
+    // b was taken off the plan by the previous test.
+    const linksUrl = `/api/floor-plans/${planId}/links`;
+    const cable = (src: string, dst: string, extra = {}) =>
+      http()
+        .post(linksUrl)
+        .set(auth)
+        .send({ sourcePortId: src, destinationPortId: dst, ...extra });
+
+    await cable(a.ports[0].id, b.ports[0].id).expect(400); // b not placed
+    await http()
+      .put(positionUrl(b.id))
+      .set(auth)
+      .send({ x: 1, y: 1 })
+      .expect(200);
+    await cable(a.ports[0].id, a.ports[1].id).expect(400); // same device
+    await cable(a.ports[0].id, '00000000-0000-4000-8000-000000000000').expect(
+      404,
+    );
+    await cable(a.ports[0].id, b.ports[0].id, {
+      waypoints: [{ x: 1001, y: 0 }],
+    }).expect(400);
+
+    const created = (
+      await cable(a.ports[0].id, b.ports[0].id, {
+        cableType: 'OPTICAL',
+        waypoints: [{ x: 10, y: 20 }],
+      }).expect(201)
+    ).body as TopologyLink;
+    expect(created).toMatchObject({
+      onosLinkId: null,
+      cableType: 'OPTICAL',
+      waypoints: [{ x: 10, y: 20 }],
+      source: { deviceId: a.id, portNumber: '1' },
+      destination: { deviceId: b.id, portNumber: '1' },
+    });
+    // Port a/1 is taken now.
+    await cable(b.ports[1].id, a.ports[0].id).expect(409);
+
+    const linkUrl = `/api/links/${created.id}`;
+    const updated = (
+      await http()
+        .patch(linkUrl)
+        .set(auth)
+        .send({
+          cableType: 'COPPER',
+          waypoints: [
+            { x: 1, y: 2 },
+            { x: 3, y: 4 },
+          ],
+        })
+        .expect(200)
+    ).body as TopologyLink;
+    expect(updated).toMatchObject({
+      cableType: 'COPPER',
+      waypoints: [
+        { x: 1, y: 2 },
+        { x: 3, y: 4 },
+      ],
+    });
+    await http()
+      .patch(linkUrl)
+      .set(auth)
+      .send({ cableType: 'WIFI' })
+      .expect(400);
+    await http()
+      .patch(linkUrl)
+      .set(auth)
+      .send({ waypoints: [{ x: 0, y: 801 }] })
+      .expect(400);
+    await http()
+      .patch(linkUrl)
+      .set(auth)
+      .send({ waypoints: Array.from({ length: 51 }, () => ({ x: 1, y: 1 })) })
+      .expect(400);
+    expect((await topology()).links[0].waypoints).toHaveLength(2);
+
+    await http().delete(linkUrl).set(auth).expect(204);
+    await http().delete(linkUrl).set(auth).expect(404);
+    expect((await topology()).links).toHaveLength(0);
+  });
+
+  it('keeps cables mirrored from ONOS', async () => {
+    const link = await prisma.networkLink.create({
+      data: {
+        floorPlanId: planId,
+        sourcePortId: a.ports[1].id,
+        destinationPortId: b.ports[1].id,
+        onosLinkId: `${PREFIX}1/2~${PREFIX}2/2`,
+      },
+    });
+    await http().delete(`/api/links/${link.id}`).set(auth).expect(409);
+    // Bends are still editable.
+    await http()
+      .patch(`/api/links/${link.id}`)
+      .set(auth)
+      .send({ waypoints: [{ x: 5, y: 5 }] })
+      .expect(200);
   });
 });

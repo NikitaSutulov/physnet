@@ -44,3 +44,20 @@ export interface UpdatePositionRequest {
 export interface UnplacedDevicesQuery {
   floorPlanId: string;
 }
+
+export const CABLE_TYPES = ['COPPER', 'OPTICAL'] as const;
+export type CableTypeName = (typeof CABLE_TYPES)[number];
+
+export const MAX_WAYPOINTS = 50;
+
+export interface CreateLinkRequest {
+  sourcePortId: string;
+  destinationPortId: string;
+  cableType?: CableTypeName;
+  waypoints?: Waypoint[];
+}
+
+export interface UpdateLinkRequest {
+  cableType?: CableTypeName;
+  waypoints?: Waypoint[];
+}
