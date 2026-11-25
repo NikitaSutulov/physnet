@@ -17,6 +17,7 @@ import {
   setDevicePosition,
   updateLink,
 } from '@/services/topology';
+import { setPortEnabled } from '@/services/devices';
 import { useRealtimeStore } from '@/store/realtimeStore';
 import { deviceKeys } from './useDevices';
 
@@ -156,6 +157,29 @@ export function useDeleteLink(planId: string) {
       return before;
     },
     onError: (_error, _linkId, before) => cache.restore(before),
+    onSettled: () => cache.settle(),
+  });
+}
+
+export function useSetPortEnabled(planId: string) {
+  const cache = useOptimistic(planId);
+  return useMutation({
+    mutationFn: ({ portId, isEnabled }: { portId: string; isEnabled: boolean }) =>
+      setPortEnabled(portId, isEnabled),
+    onMutate: async ({ portId, isEnabled }) => {
+      const before = await cache.snapshot();
+      cache.write(
+        before.topology && {
+          ...before.topology,
+          devices: before.topology.devices.map((d) => ({
+            ...d,
+            ports: d.ports.map((p) => (p.id === portId ? { ...p, isEnabled } : p)),
+          })),
+        },
+      );
+      return before;
+    },
+    onError: (_error, _input, before) => cache.restore(before),
     onSettled: () => cache.settle(),
   });
 }

@@ -14,6 +14,7 @@ import {
   useCreateLink,
   useDeleteLink,
   useMoveDevice,
+  useSetPortEnabled,
   useTopology,
   useUnplaceDevice,
   useUnplacedDevices,
@@ -22,6 +23,7 @@ import {
 import { screenToPlan, type Point } from '@/lib/geometry';
 import { busyPortIds, normaliseRotation, placePoint } from '@/lib/topology';
 import { errorMessage } from '@/services/api';
+import { useAuthStore } from '@/store/authStore';
 import { useCanvasStore } from '@/store/canvasStore';
 import { ConnectDialog, type ConnectRequest } from './ConnectDialog';
 import { DeviceDrawer } from './DeviceDrawer';
@@ -44,6 +46,8 @@ export function PlanWorkspace({ plan }: { plan: FloorPlanResponse }) {
   const createLink = useCreateLink(planId);
   const updateLink = useUpdateLink(planId);
   const deleteLink = useDeleteLink(planId);
+  const setPort = useSetPortEnabled(planId);
+  const isAdmin = useAuthStore((s) => s.user?.role === 'ADMIN');
 
   const [selection, setSelection] = useState<Selection | null>(null);
   const [connectFromId, setConnectFromId] = useState<string | null>(null);
@@ -206,6 +210,15 @@ export function PlanWorkspace({ plan }: { plan: FloorPlanResponse }) {
             }
             onRemove={() => unplaceDevice.mutate(selectedDevice.id)}
             onConnect={() => startConnect(selectedDevice.id)}
+            onTogglePort={
+              isAdmin && selectedDevice.deviceType !== 'HOST'
+                ? (portId, isEnabled) => setPort.mutate({ portId, isEnabled })
+                : undefined
+            }
+            pendingPortId={setPort.isPending ? setPort.variables.portId : null}
+            portError={
+              setPort.isError ? errorMessage(setPort.error, 'Не вдалося змінити стан порту') : null
+            }
             onClose={() => setSelection(null)}
           />
         )}

@@ -1,5 +1,6 @@
 import type {
   DeviceListQuery,
+  DevicePort,
   NetworkDeviceWithPorts,
   OfflineDevicesSummary,
   PurgeOfflineDevicesResult,
@@ -48,4 +49,9 @@ export async function purgeOfflineDevices(
 
 export async function deleteDevice(id: string): Promise<void> {
   await api.delete(`/devices/${id}`);
+}
+
+export async function setPortEnabled(portId: string, isEnabled: boolean): Promise<DevicePort> {
+  const { data } = await api.patch<DevicePort>(`/ports/${portId}`, { isEnabled });
+  return data;
 }

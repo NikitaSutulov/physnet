@@ -8,9 +8,17 @@ interface ModalProps {
   children: ReactNode;
   onClose: () => void;
   locked?: boolean;
+  wide?: boolean;
 }
 
-export function Modal({ open, title, children, onClose, locked = false }: ModalProps) {
+export function Modal({
+  open,
+  title,
+  children,
+  onClose,
+  locked = false,
+  wide = false,
+}: ModalProps) {
   const ref = useRef<HTMLDialogElement>(null);
 
   useEffect(() => {
@@ -31,7 +39,7 @@ export function Modal({ open, title, children, onClose, locked = false }: ModalP
       onClick={(e) => {
         if (e.target === ref.current && !locked) onClose();
       }}
-      className="m-auto w-full max-w-md rounded-xl border border-border bg-surface p-0 text-foreground shadow-xl backdrop:bg-black/40"
+      className={`m-auto w-full ${wide ? 'max-w-xl' : 'max-w-md'} rounded-xl border border-border bg-surface p-0 text-foreground shadow-xl backdrop:bg-black/40`}
     >
       <div className="flex flex-col gap-3 p-6">
         <h2 className="text-lg font-semibold">{title}</h2>

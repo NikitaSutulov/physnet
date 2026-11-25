@@ -38,3 +38,8 @@ export const EVENT_TYPE_LABELS: Record<string, string> = {
   'link.created': 'Новий лінк',
   'controller.status': 'Контролер',
 };
+
+export const INTENT_TYPE_LABELS: Record<string, string> = {
+  HostToHostIntent: 'Хост ↔ хост',
+  PointToPointIntent: 'Порт → порт',
+};

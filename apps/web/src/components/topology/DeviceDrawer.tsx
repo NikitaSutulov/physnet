@@ -13,6 +13,9 @@ interface Props {
   error: string | null;
   onRemove: () => void;
   onConnect: () => void;
+  onTogglePort?: (portId: string, isEnabled: boolean) => void;
+  pendingPortId?: string | null;
+  portError?: string | null;
   onClose: () => void;
 }
 
@@ -23,6 +26,9 @@ export function DeviceDrawer({
   error,
   onRemove,
   onConnect,
+  onTogglePort,
+  pendingPortId,
+  portError,
   onClose,
 }: Props) {
   const [confirming, setConfirming] = useState(false);
@@ -83,10 +89,30 @@ export function DeviceDrawer({
                 <span className={p.isEnabled ? 'text-success' : 'text-danger'}>
                   {p.isEnabled ? 'UP' : 'DOWN'}
                 </span>
+                {onTogglePort && (
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={p.isEnabled}
+                    aria-label={`Порт ${p.portNumber}: ${p.isEnabled ? 'вимкнути' : 'увімкнути'}`}
+                    disabled={pendingPortId === p.id}
+                    onClick={() => onTogglePort(p.id, !p.isEnabled)}
+                    className={`relative h-4 w-7 shrink-0 rounded-full transition-colors disabled:opacity-50 ${
+                      p.isEnabled ? 'bg-success' : 'bg-border'
+                    }`}
+                  >
+                    <span
+                      className={`absolute top-0.5 size-3 rounded-full bg-white shadow transition-[left] ${
+                        p.isEnabled ? 'left-3.5' : 'left-0.5'
+                      }`}
+                    />
+                  </button>
+                )}
               </li>
             ))}
           </ul>
         )}
+        {portError && <p className="mt-2 text-xs text-danger">{portError}</p>}
       </div>
 
       <footer className="flex flex-col gap-2 border-t border-border p-3">
