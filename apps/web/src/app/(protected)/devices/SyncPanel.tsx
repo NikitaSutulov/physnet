@@ -13,6 +13,7 @@ function describe(summary: SyncSummary): string {
     summary.devicesWentOffline && `зникло: ${summary.devicesWentOffline}`,
     summary.linksCreated && `нових ліній: ${summary.linksCreated}`,
     summary.linksWentDown && `розірвано ліній: ${summary.linksWentDown}`,
+    summary.linksRemoved && `прибрано застарілих ліній: ${summary.linksRemoved}`,
   ].filter(Boolean);
   return parts.length ? parts.join(', ') : 'змін немає';
 }

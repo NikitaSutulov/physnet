@@ -153,6 +153,7 @@ export function PlanWorkspace({ plan }: { plan: FloorPlanResponse }) {
     <div className="flex min-h-0 flex-1 gap-3">
       <UnplacedDevicesPanel
         devices={unplaced.data}
+        building={plan.building}
         loading={unplaced.isPending}
         onPlace={placeAtCentre}
       />

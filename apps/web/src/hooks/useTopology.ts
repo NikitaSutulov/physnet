@@ -4,6 +4,7 @@ import type {
   NetworkDeviceWithPorts,
   TopologyLink,
   TopologyResponse,
+  UnplacedDevice,
   UpdateLinkRequest,
   UpdatePositionRequest,
 } from '@physnet/shared';
@@ -45,7 +46,7 @@ export function useUnplacedDevices(planId: string) {
 
 interface Snapshot {
   topology?: TopologyResponse;
-  unplaced?: NetworkDeviceWithPorts[];
+  unplaced?: UnplacedDevice[];
 }
 
 function useOptimistic(planId: string) {
@@ -63,7 +64,7 @@ function useOptimistic(planId: string) {
         unplaced: queryClient.getQueryData(keys.unplaced),
       };
     },
-    write(topology?: TopologyResponse, unplaced?: NetworkDeviceWithPorts[]) {
+    write(topology?: TopologyResponse, unplaced?: UnplacedDevice[]) {
       if (topology) queryClient.setQueryData(keys.topology, topology);
       if (unplaced) queryClient.setQueryData(keys.unplaced, unplaced);
     },

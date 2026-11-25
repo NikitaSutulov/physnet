@@ -1,10 +1,10 @@
 import type {
   CreateLinkRequest,
-  NetworkDeviceWithPorts,
   PlacedDevice,
   TopologyLink,
   TopologyResponse,
   UpdateLinkRequest,
+  UnplacedDevice,
   UpdatePositionRequest,
 } from '@physnet/shared';
 import { api } from './api';
@@ -14,8 +14,8 @@ export async function getTopology(floorPlanId: string): Promise<TopologyResponse
   return data;
 }
 
-export async function listUnplacedDevices(floorPlanId: string): Promise<NetworkDeviceWithPorts[]> {
-  const { data } = await api.get<NetworkDeviceWithPorts[]>('/devices/unplaced', {
+export async function listUnplacedDevices(floorPlanId: string): Promise<UnplacedDevice[]> {
+  const { data } = await api.get<UnplacedDevice[]>('/devices/unplaced', {
     params: { floorPlanId },
   });
   return data;
