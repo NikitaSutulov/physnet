@@ -11,8 +11,8 @@ import type { PrismaService } from '../src/prisma/prisma.service.js';
  * Routing policies and port state against a fake ONOS that behaves like the
  * real one where it matters: it rejects intents of an unregistered
  * application, takes the intent key from the body, and keeps intents
- * until they are withdrawn. Uses the development database; test data is
- * removed afterwards.
+ * until they are withdrawn. Uses the e2e database; test data is removed
+ * afterwards.
  */
 const PREFIX = 'e2e-pol:';
 const HOST_A = 'E2:E2:E2:E2:E2:01/None';
@@ -111,8 +111,16 @@ describe('Policies (e2e)', () => {
           // Like ONOS: found by key ("0x8") or by decimal id ("8").
           const intent =
             intents.get(m[2]) ?? intents.get(`0x${Number(m[2]).toString(16)}`);
-          if (!intent)
-            return json(404, { code: 404, message: 'Intent not found' });
+          if (!intent) {
+            // Like ONOS: a key it cannot find is then parsed as a number,
+            // so a missing non-numeric key gives 400, not 404.
+            return /^(0x[\da-f]+|\d+)$/i.test(m[2])
+              ? json(404, { code: 404, message: 'Intent not found' })
+              : json(400, {
+                  code: 400,
+                  message: `For input string: "${m[2]}"`,
+                });
+          }
           if (req.method === 'GET')
             return json(200, {
               ...intent.body,

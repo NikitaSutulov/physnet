@@ -8,6 +8,7 @@ import type {
   NetworkDeviceWithPorts,
   OfflineDevicesSummary,
   PurgeOfflineDevicesResult,
+  UnplacedDevice,
 } from '@physnet/shared';
 import { SystemEventsService } from '../events/system-events.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
@@ -41,17 +42,39 @@ export class DevicesService {
     });
   }
 
-  async findUnplaced(floorPlanId: string): Promise<NetworkDeviceWithPorts[]> {
+  async findUnplaced(floorPlanId: string): Promise<UnplacedDevice[]> {
     const plan = await this.prisma.floorPlan.count({
       where: { id: floorPlanId },
     });
     if (!plan)
       throw new NotFoundException(`Floor plan ${floorPlanId} not found`);
-    return this.prisma.networkDevice.findMany({
+    const devices = await this.prisma.networkDevice.findMany({
       where: { spatialCoordinates: { none: { floorPlanId } } },
-      include: withPorts,
+      include: {
+        ...withPorts,
+        spatialCoordinates: {
+          select: {
+            floorPlan: {
+              select: {
+                id: true,
+                title: true,
+                building: true,
+                floorLevel: true,
+              },
+            },
+          },
+          orderBy: [
+            { floorPlan: { building: 'asc' } },
+            { floorPlan: { floorLevel: 'asc' } },
+          ],
+        },
+      },
       orderBy: [{ deviceType: 'desc' }, { name: 'asc' }],
     });
+    return devices.map(({ spatialCoordinates, ...device }) => ({
+      ...device,
+      placedOn: spatialCoordinates.map((c) => c.floorPlan),
+    }));
   }
 
   async findOne(id: string): Promise<NetworkDeviceWithPorts> {

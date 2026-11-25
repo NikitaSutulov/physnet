@@ -5,6 +5,7 @@ import type { Env } from '../config/env.js';
 import type { SystemEventsService } from '../events/system-events.service.js';
 import type { OnosService } from '../onos/onos.service.js';
 import type { PrismaService } from '../prisma/prisma.service.js';
+import type { TopologyEventsService } from '../realtime/topology-events.service.js';
 import { TopologySyncService } from './topology-sync.service.js';
 
 /**
@@ -41,6 +42,7 @@ describe('TopologySyncService.requestSync', () => {
       {} as PrismaService,
       onos,
       { publish: () => undefined } as unknown as SystemEventsService,
+      {} as TopologyEventsService,
       {} as SchedulerRegistry,
       config,
     );

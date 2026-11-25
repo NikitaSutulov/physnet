@@ -7,13 +7,14 @@ import type {
   PlacedDevice,
   TopologyLink,
   TopologyResponse,
+  UnplacedDevice,
 } from '@physnet/shared';
 import type { PrismaService } from '../src/prisma/prisma.service.js';
 
 /**
- * Placing devices on a floor plan, against the development database.
+ * Placing devices on a floor plan, against the e2e database.
  * Test data uses the `e2e-topo:` id namespace and is removed afterwards.
- * Requires `pnpm infra:up` and `pnpm db:seed`.
+ * Requires `pnpm infra:up`.
  */
 const PREFIX = 'e2e-topo:';
 const PLAN_TITLE = 'e2e topology plan';
@@ -41,7 +42,7 @@ describe('Topology (e2e)', () => {
         .get(`/api/devices/unplaced?floorPlanId=${planId}`)
         .set(auth)
         .expect(200)
-    ).body as NetworkDeviceWithPorts[];
+    ).body as UnplacedDevice[];
 
   async function cleanup() {
     await prisma.networkDevice.deleteMany({
@@ -134,6 +135,45 @@ describe('Topology (e2e)', () => {
     expect((await unplaced()).map((d) => d.id)).not.toContain(a.id);
     const topo = await topology();
     expect(topo.devices.map((d) => d.id)).toEqual([a.id]);
+  });
+
+  it('names the other plans an unplaced device is on', async () => {
+    const other = await prisma.floorPlan.create({
+      data: {
+        title: PLAN_TITLE,
+        building: 'e2e building',
+        floorLevel: 3,
+        imageUrl: 'e2e/none.png',
+        width: 1000,
+        height: 800,
+        createdBy: (
+          await prisma.floorPlan.findUniqueOrThrow({
+            where: { id: planId },
+          })
+        ).createdBy,
+      },
+    });
+    await http()
+      .put(positionUrl(b.id, other.id))
+      .set(auth)
+      .send({ x: 1, y: 1 })
+      .expect(200);
+
+    const list = await unplaced();
+    expect(list.find((d) => d.id === b.id)?.placedOn).toEqual([
+      {
+        id: other.id,
+        title: PLAN_TITLE,
+        building: 'e2e building',
+        floorLevel: 3,
+      },
+    ]);
+    // a is on this plan, so it is not listed; devices placed nowhere have
+    // no other plans.
+    expect(list.map((d) => d.id)).not.toContain(a.id);
+    expect(list.every((d) => Array.isArray(d.placedOn))).toBe(true);
+
+    await prisma.floorPlan.delete({ where: { id: other.id } });
   });
 
   it('rejects positions outside the plan and unknown ids', async () => {

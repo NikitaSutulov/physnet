@@ -76,7 +76,7 @@ export class OnosService {
       'GET',
       `/intents/${encodeURIComponent(appId)}/${encodeURIComponent(key)}`,
       undefined,
-      { allowNotFound: true },
+      { notFound: isMissingIntent },
     );
     return res?.data.state ?? null;
   }
@@ -87,7 +87,7 @@ export class OnosService {
     const res = await this.request<{
       intents?: Array<{ key: string; state: string }>;
     }>('GET', `/intents/application/${encodeURIComponent(appId)}`, undefined, {
-      allowNotFound: true,
+      notFound: isNotFound,
     });
     return new Map((res?.data.intents ?? []).map((i) => [i.key, i.state]));
   }
@@ -97,7 +97,7 @@ export class OnosService {
       'DELETE',
       `/intents/${encodeURIComponent(appId)}/${encodeURIComponent(key)}`,
       undefined,
-      { allowNotFound: true },
+      { notFound: isMissingIntent },
     );
   }
 
@@ -122,7 +122,7 @@ export class OnosService {
     method: Method,
     path: string,
     data?: unknown,
-    { allowNotFound = false } = {},
+    { notFound }: { notFound?: (e: AxiosError) => boolean } = {},
   ): Promise<AxiosResponse<T> | null> {
     try {
       return await firstValueFrom(
@@ -134,13 +134,7 @@ export class OnosService {
         }),
       );
     } catch (e) {
-      if (
-        allowNotFound &&
-        e instanceof AxiosError &&
-        e.response?.status === 404
-      ) {
-        return null;
-      }
+      if (notFound && e instanceof AxiosError && notFound(e)) return null;
       throw this.toHttpException(e, `${method.toUpperCase()} ${path}`);
     }
   }
@@ -163,4 +157,19 @@ export class OnosService {
     this.logger.error(`${op} failed`, e instanceof Error ? e.stack : String(e));
     return new BadGatewayException(`ONOS request failed: ${op}`);
   }
+}
+
+const isNotFound = (e: AxiosError) => e.response?.status === 404;
+
+function isMissingIntent(e: AxiosError): boolean {
+  if (isNotFound(e)) return true;
+  const body: unknown = e.response?.data;
+  return (
+    e.response?.status === 400 &&
+    typeof body === 'object' &&
+    body !== null &&
+    'message' in body &&
+    typeof body.message === 'string' &&
+    body.message.startsWith('For input string')
+  );
 }

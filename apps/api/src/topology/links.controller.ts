@@ -8,18 +8,28 @@ import {
   Patch,
   Post,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import {
+  ApiCreatedResponse,
+  ApiNoContentResponse,
+  ApiOkResponse,
+  ApiOperation,
+  ApiTags,
+} from '@nestjs/swagger';
 import type { TopologyLink } from '@physnet/shared';
 import { SocketId } from '../realtime/socket-id.decorator.js';
 import { CreateLinkDto, UpdateLinkDto } from './dto/link.dto.js';
 import { LinksService } from './links.service.js';
+import { ApiAuth } from '../common/decorators/api-auth.decorator.js';
+import { TopologyLinkDto } from '../topology/dto/topology.responses.js';
 
 @ApiTags('topology')
-@ApiBearerAuth()
+@ApiAuth()
 @Controller()
 export class LinksController {
   constructor(private readonly links: LinksService) {}
 
+  @ApiOperation({ summary: 'Draw a cable between two ports on a floor plan' })
+  @ApiCreatedResponse({ type: TopologyLinkDto })
   @Post('floor-plans/:id/links')
   create(
     @Param('id', ParseUUIDPipe) floorPlanId: string,
@@ -29,6 +39,8 @@ export class LinksController {
     return this.links.create(floorPlanId, dto, origin);
   }
 
+  @ApiOperation({ summary: 'Change the cable type or waypoints of a link' })
+  @ApiOkResponse({ type: TopologyLinkDto })
   @Patch('links/:id')
   update(
     @Param('id', ParseUUIDPipe) id: string,
@@ -38,6 +50,11 @@ export class LinksController {
     return this.links.update(id, dto, origin);
   }
 
+  @ApiOperation({
+    summary:
+      'Delete a hand-drawn link (links discovered by ONOS cannot be deleted)',
+  })
+  @ApiNoContentResponse()
   @Delete('links/:id')
   @HttpCode(204)
   remove(

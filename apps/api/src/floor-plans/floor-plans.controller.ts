@@ -13,7 +13,15 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { ApiBearerAuth, ApiBody, ApiConsumes, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBody,
+  ApiConsumes,
+  ApiCreatedResponse,
+  ApiNoContentResponse,
+  ApiOkResponse,
+  ApiOperation,
+  ApiTags,
+} from '@nestjs/swagger';
 import {
   FLOOR_PLAN_MAX_BYTES,
   type BuildingFloors,
@@ -30,13 +38,22 @@ import {
   type ValidatedFloorPlanFile,
 } from './floor-plan-file.pipe.js';
 import { FloorPlansService } from './floor-plans.service.js';
+import { ApiAuth } from '../common/decorators/api-auth.decorator.js';
+import {
+  BuildingFloorsDto,
+  FloorPlanResponseDto,
+} from '../floor-plans/dto/floor-plan.responses.js';
 
 @ApiTags('floor-plans')
-@ApiBearerAuth()
+@ApiAuth()
 @Controller('floor-plans')
 export class FloorPlansController {
   constructor(private readonly plans: FloorPlansService) {}
 
+  @ApiOperation({
+    summary: 'Upload a floor plan image (png, jpeg, webp, svg) to Garage',
+  })
+  @ApiCreatedResponse({ type: FloorPlanResponseDto })
   @Post()
   @ApiConsumes('multipart/form-data')
   @ApiBody({
@@ -65,16 +82,24 @@ export class FloorPlansController {
     return this.plans.create(dto, file, user.sub);
   }
 
+  @ApiOperation({
+    summary: 'List floor plans (filters: building, title search)',
+  })
+  @ApiOkResponse({ type: [FloorPlanResponseDto] })
   @Get()
   findAll(@Query() query: ListFloorPlansQuery): Promise<FloorPlanResponse[]> {
     return this.plans.findAll(query);
   }
 
+  @ApiOperation({ summary: 'Get a floor plan with a presigned image URL' })
+  @ApiOkResponse({ type: FloorPlanResponseDto })
   @Get(':id')
   findOne(@Param('id', ParseUUIDPipe) id: string): Promise<FloorPlanResponse> {
     return this.plans.findOne(id);
   }
 
+  @ApiOperation({ summary: 'Update floor plan metadata' })
+  @ApiOkResponse({ type: FloorPlanResponseDto })
   @Patch(':id')
   update(
     @Param('id', ParseUUIDPipe) id: string,
@@ -83,6 +108,8 @@ export class FloorPlansController {
     return this.plans.update(id, dto);
   }
 
+  @ApiOperation({ summary: 'Delete a floor plan and its image' })
+  @ApiNoContentResponse()
   @Delete(':id')
   @Roles('ADMIN')
   @HttpCode(204)
@@ -92,11 +119,15 @@ export class FloorPlansController {
 }
 
 @ApiTags('floor-plans')
-@ApiBearerAuth()
+@ApiAuth()
 @Controller('buildings')
 export class BuildingsController {
   constructor(private readonly plans: FloorPlansService) {}
 
+  @ApiOperation({
+    summary: 'Buildings with their floors, for the level switcher',
+  })
+  @ApiOkResponse({ type: [BuildingFloorsDto] })
   @Get()
   findAll(): Promise<BuildingFloors[]> {
     return this.plans.buildings();

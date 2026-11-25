@@ -14,9 +14,9 @@ import type { SystemEventsService } from '../src/events/system-events.service.js
 import type { PrismaService } from '../src/prisma/prisma.service.js';
 
 /**
- * Two browsers on one plan, against a real HTTP server and the development
+ * Two browsers on one plan, against a real HTTP server and the e2e
  * database. Test data uses the `e2e-rt:` namespace and is removed afterwards.
- * Requires `pnpm infra:up` and `pnpm db:seed`.
+ * Requires `pnpm infra:up`.
  */
 const PREFIX = 'e2e-rt:';
 const PLAN_TITLE = 'e2e realtime plan';

@@ -23,8 +23,8 @@ import {
 
 /**
  * Runs the ONOS synchroniser against a fake controller over real HTTP and
- * the development database. Test data uses its own id namespace and is
- * removed afterwards. Requires `pnpm infra:up` and `pnpm db:seed`.
+ * the e2e database. Test data uses its own id namespace and is removed
+ * afterwards. Requires `pnpm infra:up`.
  */
 const IDS: FixtureIds = { dpidPrefix: 'e2e:', macPrefix: 'ee:ee:ee:ee:ee' };
 const S = (n: number) => dpid(n, IDS.dpidPrefix);
@@ -259,7 +259,7 @@ describe('ONOS synchronisation (e2e)', () => {
     s2ports.find((p) => p.port === '2')!.isEnabled = false;
 
     // Counters are global: the fake controller does not report the other
-    // devices of the development database either, so check our own ones.
+    // devices left in the e2e database either, so check our own ones.
     const summary = await sync();
     expect(summary.linksWentDown).toBeGreaterThanOrEqual(1);
     expect(summary.devicesWentOffline).toBeGreaterThanOrEqual(1);
@@ -296,6 +296,80 @@ describe('ONOS synchronisation (e2e)', () => {
         })
       ).status,
     ).toBe('ACTIVE');
+  });
+
+  it('removes cables whose ports were recabled', async () => {
+    // The trunk moves from s1/1 to s1/2: s2/3 now leads to s1/2.
+    const S1 = dpid(1, IDS.dpidPrefix);
+    const S2 = dpid(2, IDS.dpidPrefix);
+    const onS1 = (e: { device: string; port: string }, port: string) =>
+      e.device === S1 && e.port === port;
+    snapshot.links = [
+      ...snapshot.links.filter(
+        (l) => !['1', '2'].some((p) => onS1(l.src, p) || onS1(l.dst, p)),
+      ),
+      ...(['1', '2'] as const).map((_, i) => {
+        const [src, dst] = [
+          { device: S1, port: '2' },
+          { device: S2, port: '3' },
+        ];
+        return {
+          src: i ? dst : src,
+          dst: i ? src : dst,
+          type: 'DIRECT',
+          state: 'ACTIVE',
+        };
+      }),
+    ];
+    const moved = linkId(end(S1, '2'), end(S2, '3'));
+
+    const summary = await sync();
+    expect(summary.linksRemoved).toBeGreaterThanOrEqual(1);
+    const onPlan = await prisma.networkLink.findMany({
+      where: { floorPlanId: planId },
+      select: { onosLinkId: true },
+    });
+    expect(onPlan.map((l) => l.onosLinkId)).toContain(moved);
+    expect(onPlan.map((l) => l.onosLinkId)).not.toContain(CORE_LINK);
+
+    // Recabling back draws the original cable again and drops the moved one.
+    snapshot = tree2Snapshot(IDS);
+    await sync();
+    expect(
+      await prisma.networkLink.count({
+        where: { floorPlanId: planId, onosLinkId: { in: [moved, CORE_LINK] } },
+      }),
+    ).toBe(1);
+  });
+
+  it('removes cables whose device is no longer on the plan', async () => {
+    // s3 is not placed, yet a cable to it was left on the plan.
+    const [s1, s3] = await Promise.all([
+      device(dpid(1, IDS.dpidPrefix)),
+      device(dpid(3, IDS.dpidPrefix)),
+    ]);
+    const stray = await prisma.networkLink.create({
+      data: {
+        onosLinkId: linkId(
+          end(s1.onosDeviceId, '2'),
+          end(s3.onosDeviceId, '3'),
+        ),
+        sourcePortId: s1.ports.find((p) => p.portNumber === '2')!.id,
+        destinationPortId: s3.ports.find((p) => p.portNumber === '3')!.id,
+        floorPlanId: planId,
+      },
+    });
+
+    expect((await sync()).linksRemoved).toBeGreaterThanOrEqual(1);
+    expect(
+      await prisma.networkLink.findUnique({ where: { id: stray.id } }),
+    ).toBeNull();
+    // Cables between placed devices stay.
+    expect(
+      await prisma.networkLink.count({
+        where: { floorPlanId: planId, onosLinkId: CORE_LINK },
+      }),
+    ).toBe(1);
   });
 
   it('deletes only devices ONOS no longer reports', async () => {

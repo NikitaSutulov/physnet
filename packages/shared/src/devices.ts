@@ -9,6 +9,17 @@ export interface NetworkDeviceWithPorts extends NetworkDevice {
   ports: DevicePort[];
 }
 
+export interface PlanRef {
+  id: string;
+  title: string;
+  building: string;
+  floorLevel: number;
+}
+
+export interface UnplacedDevice extends NetworkDeviceWithPorts {
+  placedOn: PlanRef[];
+}
+
 export interface DeviceListQuery {
   type?: DeviceTypeName;
   status?: string;
@@ -41,6 +52,8 @@ export interface SyncSummary {
   linksCreated: number;
   linksUpdated: number;
   linksWentDown: number;
+  /** Cables whose ports were recabled or whose devices left the plan. */
+  linksRemoved: number;
 }
 
 export interface SyncStatus {

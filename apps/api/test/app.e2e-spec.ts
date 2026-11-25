@@ -4,7 +4,7 @@ import request from 'supertest';
 import { App } from 'supertest/types.js';
 import { AppModule } from './../src/app.module.js';
 
-/** Requires `pnpm infra:up` and a seeded administrator (`pnpm db:seed`). */
+/** Requires `pnpm infra:up`; the e2e database is prepared by the global setup. */
 describe('Auth (e2e)', () => {
   let app: INestApplication<App>;
 

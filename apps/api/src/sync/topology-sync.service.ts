@@ -19,6 +19,7 @@ import {
 } from '../onos/onos.mapper.js';
 import { OnosService } from '../onos/onos.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { TopologyEventsService } from '../realtime/topology-events.service.js';
 
 const INTERVAL_NAME = 'onos-topology-sync';
 
@@ -39,6 +40,7 @@ export class TopologySyncService
     private readonly prisma: PrismaService,
     private readonly onos: OnosService,
     private readonly events: SystemEventsService,
+    private readonly topologyEvents: TopologyEventsService,
     private readonly scheduler: SchedulerRegistry,
     config: ConfigService<Env, true>,
   ) {
@@ -171,6 +173,7 @@ export class TopologySyncService
       linksCreated: 0,
       linksUpdated: 0,
       linksWentDown: 0,
+      linksRemoved: 0,
     };
 
     const placements = await this.placementsByDevice();
@@ -258,8 +261,34 @@ export class TopologySyncService
       });
     }
 
+    await this.removeOffPlanLinks(summary);
     await this.syncLinks(topology.links, placements, summary);
     return summary;
+  }
+
+  private async removeOffPlanLinks(summary: SyncSummary): Promise<void> {
+    const removed = await this.prisma.$queryRaw<
+      { id: string; floor_plan_id: string }[]
+    >`
+      DELETE FROM network_links l
+      USING device_ports s, device_ports d
+      WHERE s.id = l.source_port_id AND d.id = l.destination_port_id
+        AND NOT (
+          EXISTS (SELECT 1 FROM spatial_coordinates c
+                  WHERE c.floor_plan_id = l.floor_plan_id
+                    AND c.device_id = s.device_id)
+          AND EXISTS (SELECT 1 FROM spatial_coordinates c
+                      WHERE c.floor_plan_id = l.floor_plan_id
+                        AND c.device_id = d.device_id)
+        )
+      RETURNING l.id, l.floor_plan_id`;
+    for (const link of removed) {
+      summary.linksRemoved++;
+      this.topologyEvents.linkDeleted({
+        floorPlanId: link.floor_plan_id,
+        linkId: link.id,
+      });
+    }
   }
 
   private async syncPorts(
@@ -353,10 +382,12 @@ export class TopologySyncService
     }
 
     const seen = new Set<string>();
+    const linkedPorts = new Set<string>();
     for (const link of links) {
       const a = portByKey.get(`${link.a.onosDeviceId}/${link.a.portNumber}`);
       const b = portByKey.get(`${link.b.onosDeviceId}/${link.b.portNumber}`);
       if (!a || !b) continue;
+      linkedPorts.add(a.id).add(b.id);
 
       const matches = storedByPair.get(pairKey(a.id, b.id)) ?? [];
       for (const m of matches) {
@@ -384,16 +415,17 @@ export class TopologySyncService
       for (const floorPlanId of plansA.filter(
         (p) => plansB.has(p) && !drawnOn.has(p),
       )) {
-        const created = await this.prisma.networkLink.create({
-          data: {
+        const created = await this.createLinkIfPlaced(
+          {
             onosLinkId: link.onosLinkId,
             sourcePortId: a.id,
             destinationPortId: b.id,
             floorPlanId,
             status: link.status,
           },
-          select: { id: true },
-        });
+          [a.deviceId, b.deviceId],
+        );
+        if (!created) continue;
         seen.add(created.id);
         summary.linksCreated++;
         this.events.publish({
@@ -408,7 +440,20 @@ export class TopologySyncService
     }
 
     for (const l of stored) {
-      if (seen.has(l.id) || !l.onosLinkId || l.status === 'DOWN') continue;
+      if (seen.has(l.id) || !l.onosLinkId) continue;
+      if (
+        linkedPorts.has(l.sourcePortId) ||
+        linkedPorts.has(l.destinationPortId)
+      ) {
+        await this.prisma.networkLink.deleteMany({ where: { id: l.id } });
+        summary.linksRemoved++;
+        this.topologyEvents.linkDeleted({
+          floorPlanId: l.floorPlanId,
+          linkId: l.id,
+        });
+        continue;
+      }
+      if (l.status === 'DOWN') continue;
       await this.prisma.networkLink.update({
         where: { id: l.id },
         data: { status: 'DOWN' },
@@ -439,6 +484,27 @@ export class TopologySyncService
       linkId,
       floorPlanIds: [floorPlanId],
       data: { from, to: link.status, onosLinkId: link.onosLinkId },
+    });
+  }
+
+  private createLinkIfPlaced(
+    data: {
+      onosLinkId: string;
+      sourcePortId: string;
+      destinationPortId: string;
+      floorPlanId: string;
+      status: string;
+    },
+    [deviceA, deviceB]: [string, string],
+  ): Promise<{ id: string } | null> {
+    return this.prisma.$transaction(async (tx) => {
+      const placed = await tx.$queryRaw<{ device_id: string }[]>`
+        SELECT device_id FROM spatial_coordinates
+        WHERE floor_plan_id = ${data.floorPlanId}::uuid
+          AND device_id IN (${deviceA}::uuid, ${deviceB}::uuid)
+        FOR SHARE`;
+      if (new Set(placed.map((p) => p.device_id)).size < 2) return null;
+      return tx.networkLink.create({ data, select: { id: true } });
     });
   }
 

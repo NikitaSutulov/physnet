@@ -7,7 +7,7 @@ import type { PrismaService } from '../src/prisma/prisma.service.js';
 
 /**
  * Dashboard counters, checked as differences so that whatever else is in
- * the development database does not matter. Test data uses the `e2e-dash:`
+ * the e2e database does not matter. Test data uses the `e2e-dash:`
  * namespace and is removed afterwards.
  */
 const PREFIX = 'e2e-dash:';
