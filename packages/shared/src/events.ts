@@ -6,6 +6,7 @@ export const SYSTEM_EVENT_TYPES = [
   'link.status',
   'link.created',
   'controller.status',
+  'policy.status',
 ] as const;
 
 export type SystemEventType = (typeof SYSTEM_EVENT_TYPES)[number];
@@ -21,7 +22,6 @@ export interface SystemEvent {
   deviceId?: string;
   portId?: string;
   linkId?: string;
-  /** Floor plans affected by the event, used for WebSocket room routing. */
   floorPlanIds?: string[];
   data?: Record<string, unknown>;
 }

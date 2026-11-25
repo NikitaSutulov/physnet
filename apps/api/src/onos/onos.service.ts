@@ -5,7 +5,7 @@ import {
   Logger,
   ServiceUnavailableException,
 } from '@nestjs/common';
-import { AxiosError } from 'axios';
+import { AxiosError, type AxiosResponse, type Method } from 'axios';
 import { firstValueFrom } from 'rxjs';
 import type {
   OnosDevice,
@@ -60,12 +60,88 @@ export class OnosService {
     return { devices: withPorts, hosts, links };
   }
 
+  async registerApplication(appId: string): Promise<void> {
+    await this.request(
+      'POST',
+      `/applications/${encodeURIComponent(appId)}/register`,
+    );
+  }
+
+  async submitIntent(body: Record<string, unknown>): Promise<void> {
+    await this.request('POST', '/intents', body);
+  }
+
+  async getIntentState(appId: string, key: string): Promise<string | null> {
+    const res = await this.request<{ state?: string }>(
+      'GET',
+      `/intents/${encodeURIComponent(appId)}/${encodeURIComponent(key)}`,
+      undefined,
+      { allowNotFound: true },
+    );
+    return res?.data.state ?? null;
+  }
+
+  async getApplicationIntentStates(
+    appId: string,
+  ): Promise<Map<string, string>> {
+    const res = await this.request<{
+      intents?: Array<{ key: string; state: string }>;
+    }>('GET', `/intents/application/${encodeURIComponent(appId)}`, undefined, {
+      allowNotFound: true,
+    });
+    return new Map((res?.data.intents ?? []).map((i) => [i.key, i.state]));
+  }
+
+  async withdrawIntent(appId: string, key: string): Promise<void> {
+    await this.request(
+      'DELETE',
+      `/intents/${encodeURIComponent(appId)}/${encodeURIComponent(key)}`,
+      undefined,
+      { allowNotFound: true },
+    );
+  }
+
+  async setPortState(
+    deviceId: string,
+    port: string,
+    enabled: boolean,
+  ): Promise<void> {
+    await this.request(
+      'POST',
+      `/devices/${encodeURIComponent(deviceId)}/portstate/${encodeURIComponent(port)}`,
+      { enabled },
+    );
+  }
+
   private async get<T>(path: string): Promise<T> {
+    const res = await this.request<T>('GET', path);
+    return res!.data;
+  }
+
+  private async request<T = unknown>(
+    method: Method,
+    path: string,
+    data?: unknown,
+    { allowNotFound = false } = {},
+  ): Promise<AxiosResponse<T> | null> {
     try {
-      const { data } = await firstValueFrom(this.http.get<T>(path));
-      return data;
+      return await firstValueFrom(
+        this.http.request<T>({
+          method,
+          url: path,
+          data,
+          ...(data === undefined && { headers: { 'Content-Type': false } }),
+        }),
+      );
     } catch (e) {
-      throw this.toHttpException(e, `GET ${path}`);
+      if (
+        allowNotFound &&
+        e instanceof AxiosError &&
+        e.response?.status === 404
+      ) {
+        return null;
+      }
+      throw this.toHttpException(e, `${method.toUpperCase()} ${path}`);
     }
   }
 
@@ -76,9 +152,12 @@ export class OnosService {
           `ONOS controller is unreachable (${e.code ?? e.message})`,
         );
       }
-      this.logger.error(`${op} failed: HTTP ${e.response.status}`);
+      const body = e.response.data as { message?: unknown } | undefined;
+      const reason =
+        typeof body?.message === 'string' ? `: ${body.message}` : '';
+      this.logger.error(`${op} failed: HTTP ${e.response.status}${reason}`);
       return new BadGatewayException(
-        `ONOS responded with HTTP ${e.response.status} to ${op}`,
+        `ONOS responded with HTTP ${e.response.status} to ${op}${reason}`,
       );
     }
     this.logger.error(`${op} failed`, e instanceof Error ? e.stack : String(e));

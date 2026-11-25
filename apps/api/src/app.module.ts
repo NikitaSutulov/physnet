@@ -16,6 +16,7 @@ import { DevicesModule } from './devices/devices.module.js';
 import { TopologyModule } from './topology/topology.module.js';
 import { RealtimeModule } from './realtime/realtime.module.js';
 import { DashboardModule } from './dashboard/dashboard.module.js';
+import { PoliciesModule } from './policies/policies.module.js';
 
 @Module({
   imports: [
@@ -38,6 +39,7 @@ import { DashboardModule } from './dashboard/dashboard.module.js';
     TopologyModule,
     RealtimeModule,
     DashboardModule,
+    PoliciesModule,
   ],
   controllers: [AppController],
 })
